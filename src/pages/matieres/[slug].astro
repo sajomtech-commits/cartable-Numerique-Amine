@@ -9,11 +9,11 @@ const noms: Record<string,string> = { sport:'Sport', math:'Maths', francais:'Fra
 ---
 <Layout title={noms[slug] || 'Matière — Amine'}>
   <main class="max-w-2xl mx-auto px-5 py-8">
-    <a href="/" class="text-xs text-brand hover:underline mb-4 inline-block">← Accueil</a>
+    <a href={import.meta.env.BASE_URL} class="text-xs text-brand hover:underline mb-4 inline-block">← Accueil</a>
     <h1 class="text-3xl font-extrabold mb-2">{noms[slug] || slug}</h1>
     <p class="text-slate-400 mb-6">Cours, fiches et résumés IA pour cette matière.</p>
 
-    <a href="/upload" class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (PDF)</a>
+    <a href={`${import.meta.env.BASE_URL}/upload`} class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (PDF)</a>
 
     <section class="grid gap-4">
       <div class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl">

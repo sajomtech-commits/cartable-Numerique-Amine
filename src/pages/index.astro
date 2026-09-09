@@ -22,7 +22,7 @@ const matieres = [
 
     <section class="grid grid-cols-2 gap-3 mb-8">
       {matieres.map(m => (
-        <a href={`/matieres/${m.slug}`} class={`${m.color} rounded-2xl p-5 shadow-lg hover:-translate-y-0.5 transition-all text-white font-semibold text-sm flex flex-col gap-2 ring-1 ring-white/10`}>
+        <a href={`${import.meta.env.BASE_URL}/matieres/${m.slug}`} class={`${m.color} rounded-2xl p-5 shadow-lg hover:-translate-y-0.5 transition-all text-white font-semibold text-sm flex flex-col gap-2 ring-1 ring-white/10`}>
           <span class="text-2xl leading-none">{m.icon}</span>
           <span class="leading-tight">{m.nom}</span>
         </a>
@@ -32,7 +32,7 @@ const matieres = [
     <section class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl">
       <h2 class="text-xl font-bold mb-4 flex items-center gap-2">🤖 Résumé IA</h2>
       <p class="text-slate-400 text-sm mb-4">Téléverse un PDF de cours → l'IA génère un résumé structuré.</p>
-      <a href="/upload" class="inline-block bg-brand hover:bg-indigo-600 text-white font-semibold px-6 py-3 rounded-xl shadow transition text-sm">Téléverser un cours</a>
+      <a href={`${import.meta.env.BASE_URL}/upload`} class="inline-block bg-brand hover:bg-indigo-600 text-white font-semibold px-6 py-3 rounded-xl shadow transition text-sm">Téléverser un cours</a>
       <p class="text-xs text-slate-500 mt-3">Modèle : HuggingFace Mistral 7B Instruct · Token requis dans localStorage</p>
     </section>
   </main>

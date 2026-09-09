@@ -25,7 +25,8 @@ import Layout from '../layouts/Layout.astro';
 
   <script type="module">
     import * as pdfjsLib from 'pdfjs-dist';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.worker.min.mjs';
+    import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
     window.process = async () => {
       const file = document.getElementById('file').files[0];
       const mat = document.getElementById('matiere').value;
