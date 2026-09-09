@@ -1,0 +1,25 @@
+---
+import Layout from '../../layouts/Layout.astro';
+const { slug } = Astro.params;
+const noms: Record<string,string> = { sport:'Sport', math:'Maths', francais:'Français', 'science-num':'Science Numérique', 'histoire-geo':'Histoire-Géo', espagnol:'Espagnol', 'physique-chimie':'Physique-Chimie', svt:'SVT', anglais:'Anglais', 'science-eco':'Science Éco' };
+---
+<Layout title={noms[slug] || 'Matière — Amine'}>
+  <main class="max-w-2xl mx-auto px-5 py-8">
+    <a href="/" class="text-xs text-brand hover:underline mb-4 inline-block">← Accueil</a>
+    <h1 class="text-3xl font-extrabold mb-2">{noms[slug] || slug}</h1>
+    <p class="text-slate-400 mb-6">Cours, fiches et résumés IA pour cette matière.</p>
+
+    <a href="/upload" class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (PDF)</a>
+
+    <section class="grid gap-4">
+      <div class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl">
+        <h3 class="font-bold text-lg mb-2">📄 Cours récents</h3>
+        <p class="text-slate-400 text-sm">Aucun cours encore. Utilise le bouton ci-dessus pour téléverser un PDF.</p>
+      </div>
+      <div class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl">
+        <h3 class="font-bold text-lg mb-2">🤖 Résumé IA (dernier)</h3>
+        <p class="text-slate-400 text-sm">Pas de résumé pour cette matière. Ajoute un cours d'abord.</p>
+      </div>
+    </section>
+  </main>
+</Layout>

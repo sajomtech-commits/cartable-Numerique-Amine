@@ -1,0 +1,39 @@
+---
+import Layout from '../layouts/Layout.astro';
+const matieres = [
+  { slug: 'sport', nom: 'Sport', icon: '⚽', color: 'bg-emerald-500' },
+  { slug: 'math', nom: 'Maths', icon: '📐', color: 'bg-violet-500' },
+  { slug: 'francais', nom: 'Français', icon: '📚', color: 'bg-rose-500' },
+  { slug: 'science-num', nom: 'Science Numérique', icon: '💻', color: 'bg-cyan-500' },
+  { slug: 'histoire-geo', nom: 'Histoire-Géo', icon: '🌍', color: 'bg-amber-500' },
+  { slug: 'espagnol', nom: 'Espagnol', icon: '🇪🇸', color: 'bg-orange-500' },
+  { slug: 'physique-chimie', nom: 'Physique-Chimie', icon: '⚛️', color: 'bg-indigo-500' },
+  { slug: 'svt', nom: 'SVT', icon: '🧬', color: 'bg-lime-500' },
+  { slug: 'anglais', nom: 'Anglais', icon: '🇬🇧', color: 'bg-sky-500' },
+  { slug: 'science-eco', nom: 'Science Éco', icon: '📊', color: 'bg-teal-500' },
+];
+---
+<Layout title="Cartable Numérique — Amine">
+  <main class="max-w-2xl mx-auto px-5 py-8">
+    <header class="mb-8">
+      <h1 class="text-4xl font-extrabold tracking-tight mb-2">Cartable Numérique</h1>
+      <p class="text-slate-400 text-base">Amine — 2nde · Cours · Fiches · Résumés IA</p>
+    </header>
+
+    <section class="grid grid-cols-2 gap-3 mb-8">
+      {matieres.map(m => (
+        <a href={`/matieres/${m.slug}`} class={`${m.color} rounded-2xl p-5 shadow-lg hover:-translate-y-0.5 transition-all text-white font-semibold text-sm flex flex-col gap-2 ring-1 ring-white/10`}>
+          <span class="text-2xl leading-none">{m.icon}</span>
+          <span class="leading-tight">{m.nom}</span>
+        </a>
+      ))}
+    </section>
+
+    <section class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl">
+      <h2 class="text-xl font-bold mb-4 flex items-center gap-2">🤖 Résumé IA</h2>
+      <p class="text-slate-400 text-sm mb-4">Téléverse un PDF de cours → l'IA génère un résumé structuré.</p>
+      <a href="/upload" class="inline-block bg-brand hover:bg-indigo-600 text-white font-semibold px-6 py-3 rounded-xl shadow transition text-sm">Téléverser un cours</a>
+      <p class="text-xs text-slate-500 mt-3">Modèle : HuggingFace Mistral 7B Instruct · Token requis dans localStorage</p>
+    </section>
+  </main>
+</Layout>
