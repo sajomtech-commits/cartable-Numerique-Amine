@@ -14,8 +14,8 @@ import Layout from '../layouts/Layout.astro';
 
     <div class="mb-2"><label>Matière</label><select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"><option>SVT</option><option>Maths</option><option>Français</option><option>Physique-Chimie</option><option>Anglais</option><option>Espagnol</option></select></div>
 
-    <label>Clé HF (si pas dans localStorage)</label>
-    <input id="hfk" type="password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-4" placeholder="hf_..." />
+    <label>Clé DeepSeek (si pas dans localStorage)</label>
+    <input id="hfk" type="password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-4" placeholder="sk-..." />
 
     <button onclick="process()" class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition">Résumer avec l'IA</button>
 
@@ -30,8 +30,8 @@ import Layout from '../layouts/Layout.astro';
     window.process = async () => {
       const file = document.getElementById('file').files[0];
       const mat = document.getElementById('matiere').value;
-      const hf = document.getElementById('hfk').value || localStorage.getItem('hf_key') || '';
-      if (hf) localStorage.setItem('hf_key', hf);
+      const hf = document.getElementById('hfk').value || localStorage.getItem('deepseek_key') || '';
+      if (hf) localStorage.setItem('deepseek_key', hf);
       const st = document.getElementById('status');
       if (!file) { st.textContent = 'Choisissez un PDF'; return; }
       st.textContent = 'Lecture PDF...';
@@ -45,13 +45,20 @@ import Layout from '../layouts/Layout.astro';
       }
       st.textContent = 'Envoi IA...';
       try {
-        const r = await fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3', {
+        const r = await fetch('https://api.deepseek.com/chat/completions', {
           method: 'POST', headers: { Authorization: `Bearer ${hf}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inputs: `Résume ce chapitre de ${mat} en 10 points max, markdown :\n\n${txt.slice(0, 6000)}`, parameters: { max_new_tokens: 600, temperature: 0.3, return_full_text: false } })
+          body: JSON.stringify({
+            model: 'deepseek-chat',
+            messages: [
+              { role: 'system', content: 'Tu es un assistant pédagogique pour un lycéen français.' },
+              { role: 'user', content: `Résume ce chapitre de ${mat} en 10 points max, en markdown :\n\n${txt.slice(0, 6000)}` }
+            ],
+            max_tokens: 800, temperature: 0.3
+          })
         });
         const j = await r.json();
         if (!r.ok) throw new Error(JSON.stringify(j));
-        const out = Array.isArray(j) ? (j[0]?.generated_text || j[0]) : (j.generated_text || JSON.stringify(j));
+        const out = j.choices?.[0]?.message?.content || JSON.stringify(j);
         document.getElementById('res').classList.remove('hidden');
         document.getElementById('res').textContent = out;
         st.textContent = `Résumé OK (${txt.length} caractères extraits)`;

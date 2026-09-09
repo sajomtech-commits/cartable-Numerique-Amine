@@ -1,11 +1,19 @@
-export async function resumeCours(text: string, matiere: string, hfKey?: string) {
-  const key = hfKey || (typeof document !== 'undefined' ? localStorage.getItem('hf_key') : null) || '';
-  const res = await fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3', {
+export async function resumeCours(text: string, matiere: string, apiKey?: string) {
+  const key = apiKey || (typeof document !== 'undefined' ? localStorage.getItem('deepseek_key') : null) || '';
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ inputs: `Résume ce chapitre de ${matiere} en 10 points max, format markdown :\n\n${text}`, parameters: { max_new_tokens: 500, temperature: 0.3, return_full_text: false } })
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: "Tu es un assistant pédagogique pour un lycéen français." },
+        { role: 'user', content: `Résume ce chapitre de ${matiere} en 10 points max, format markdown :\n\n${text}` }
+      ],
+      max_tokens: 800,
+      temperature: 0.3
+    })
   });
-  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || res.statusText); }
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || res.statusText); }
   const j = await res.json();
-  return Array.isArray(j) ? j[0]?.generated_text || j[0] || '' : (j.generated_text || j[0]?.summary_text || JSON.stringify(j));
+  return j.choices?.[0]?.message?.content || '';
 }
