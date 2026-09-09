@@ -1,5 +1,9 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+export function getStaticPaths() {
+  const slugs = ['sport','math','francais','science-num','histoire-geo','espagnol','physique-chimie','svt','anglais','science-eco'];
+  return slugs.map(s => ({ params: { slug: s } }));
+}
 const { slug } = Astro.params;
 const noms: Record<string,string> = { sport:'Sport', math:'Maths', francais:'Français', 'science-num':'Science Numérique', 'histoire-geo':'Histoire-Géo', espagnol:'Espagnol', 'physique-chimie':'Physique-Chimie', svt:'SVT', anglais:'Anglais', 'science-eco':'Science Éco' };
 ---

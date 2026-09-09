@@ -1,14 +1,22 @@
 {
-  "dependencies": {
-    "@astrojs/tailwind": "^6.0.2",
-    "@supabase/supabase-js": "^2.116.0",
-    "pdfjs-dist": "^6.3.289",
-    "tailwindcss": "^3.4.19"
-  },
+  "name": "cartable-numerique-amine",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/tailwind": "^6.0.2",
+    "astro": "^5.18.2",
+    "pdfjs-dist": "^6.3.289",
+    "tailwindcss": "^3.4.19"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.116.0"
   }
 }
