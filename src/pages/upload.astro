@@ -23,7 +23,7 @@ import Layout from '../layouts/Layout.astro';
     <pre id="res" class="bg-slate-900 rounded-xl p-4 text-xs overflow-auto mt-2 font-mono text-emerald-200 hidden"></pre>
   </main>
 
-  <script type="module">
+  <script>
     import * as pdfjsLib from 'pdfjs-dist';
     import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
     pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
