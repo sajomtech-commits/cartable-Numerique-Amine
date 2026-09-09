@@ -10,8 +10,8 @@ const { title = "Cartable Numérique — Amine" } = Astro.props;
   <meta name="description" content="Cartable numérique d'Amine — 2nde" />
   <title>{title}</title>
   <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}/favicon.svg`} />
-  <script src="https://cdn.tailwindcss.com?plugins=typography,forms,aspect-ratio,line-clamp"></script>
-  <script>tailwind.config = { theme: { extend: { colors: { brand: '#6366f1' }, fontFamily: { sans: ['Inter','system-ui','sans-serif'], serif: ['Georgia','serif'] } } } }</script>
+  <script is:inline src="https://cdn.tailwindcss.com?plugins=typography,forms,aspect-ratio,line-clamp"></script>
+  <script is:inline>tailwind.config = { theme: { extend: { colors: { brand: '#6366f1' }, fontFamily: { sans: ['Inter','system-ui','sans-serif'], serif: ['Georgia','serif'] } } } }</script>
   <style>body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}</style>
 </head>
 <body class="min-h-screen flex flex-col"><slot /></body>
