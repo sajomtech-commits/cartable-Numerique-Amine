@@ -1,7 +1,7 @@
 // Client IA — opencode Go (Z.AI GLM via OpenCode)
 // Environnement navigateur : la clé est stockée dans localStorage (jamais dans le repo).
 const BASE_URL = 'https://opencode.ai/zen/go/v1';
-const MODEL = 'glm-4.5-air';
+const MODEL = 'glm-5.3-flash';
 
 export function getApiKey(): string {
   return (typeof document !== 'undefined' ? localStorage.getItem('oc_key') : '') || '';
