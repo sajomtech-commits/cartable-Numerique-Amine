@@ -8,12 +8,12 @@ export function getApiKey(): string {
 }
 
 export async function chat(messages: { role: string; content: string }[], maxTokens = 1200): Promise<string> {
-  const key = getApiKey();
-  if (!key) throw new Error('Clé API manquante — va dans Réglages.');
+  const authKey = getApiKey() || import.meta.env.PUBLIC_AI_KEY || '';
+  if (!authKey) throw new Error('Clé API manquante — va dans Réglages.');
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${authKey}`,
       'x-opencode-session': `cartable-amine-${Date.now()}`,
       'Content-Type': 'application/json',
     },

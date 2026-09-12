@@ -1,4 +1,6 @@
-// Fiches de révision — stockage Supabase (REST) partagé
+// Fiches de révision — stockage Supabase (REST) par utilisateur authentifié
+import { validToken } from './auth';
+
 export interface Fiche {
   id: string;
   matiere: string;
@@ -10,13 +12,12 @@ export interface Fiche {
 }
 
 const URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
-const KEY = import.meta.env.PUBLIC_SUPABASE_KEY || '';
 const TABLE = `${URL}/rest/v1/fiches`;
 
-function headers(): HeadersInit {
+function headers(token: string): HeadersInit {
   return {
-    apikey: KEY,
-    Authorization: `Bearer ${KEY}`,
+    apikey: import.meta.env.PUBLIC_SUPABASE_KEY,
+    Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
     Prefer: 'return=representation',
   };
@@ -28,7 +29,6 @@ interface Row {
   points_cles?: string[]; quiz?: QuizRow[]; created_at?: string;
 }
 
-// Row Supabase -> Fiche applicative
 function mapRow(r: Row): Fiche {
   return {
     id: r.id,
@@ -42,15 +42,18 @@ function mapRow(r: Row): Fiche {
 }
 
 export async function getFiches(): Promise<Fiche[]> {
-  if (!URL || !KEY) return [];
+  const token = await validToken();
+  if (!token) return [];
   try {
-    const res = await fetch(`${TABLE}?select=*&order=created_at.desc&limit=200`, { headers: headers() });
+    const res = await fetch(`${TABLE}?select=*&order=created_at.desc&limit=200`, { headers: headers(token) });
     if (!res.ok) return [];
     return (await res.json()).map(mapRow);
   } catch { return []; }
 }
 
 export async function saveFiche(f: Omit<Fiche, 'id' | 'date'>): Promise<Fiche> {
+  const token = await validToken();
+  if (!token) throw new Error('Non connecté');
   const body = {
     matiere: f.matiere,
     titre: f.titre,
@@ -58,15 +61,18 @@ export async function saveFiche(f: Omit<Fiche, 'id' | 'date'>): Promise<Fiche> {
     points_cles: f.pointsCles,
     quiz: f.quiz.map((q) => ({ Q: q.q, R: q.r })),
     source_type: 'texte',
+    // user_id est posé par la base via default auth.uid() quand la session est authentifiée
   };
-  const res = await fetch(TABLE, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(`Enregistrement Supabase échoué (${res.status})`);
+  const res = await fetch(TABLE, { method: 'POST', headers: headers(token), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`Enregistrement échoué (${res.status})`);
   const row = (await res.json())[0];
   return { ...f, id: row.id, date: row.created_at || new Date().toISOString() };
 }
 
 export async function deleteFiche(id: string): Promise<void> {
-  await fetch(`${TABLE}?id=eq.${id}`, { method: 'DELETE', headers: headers() });
+  const token = await validToken();
+  if (!token) return;
+  await fetch(`${TABLE}?id=eq.${id}`, { method: 'DELETE', headers: headers(token) });
 }
 
 export async function fichesParMatiere(matiere: string): Promise<Fiche[]> {

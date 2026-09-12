@@ -1,0 +1,65 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Connexion — Cartable Numérique">
+  <main class="min-h-[80vh] flex items-center justify-center px-4">
+    <section class="w-full max-w-md bg-slate-900/60 border border-slate-700 rounded-2xl p-8">
+      <h1 class="text-2xl font-bold text-white mb-2">🔐 Connexion</h1>
+      <p class="text-slate-400 text-sm mb-6">Le cartable est réservé aux élèves inscrits.</p>
+      <div id="err" class="hidden mb-4 text-sm text-red-400 bg-red-900/30 rounded-lg px-3 py-2"></div>
+      <form id="form" class="space-y-4">
+        <div>
+          <label class="block text-sm text-slate-300 mb-1" for="email">Email</label>
+          <input id="email" type="email" required autocomplete="email"
+                 class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand" />
+        </div>
+        <div>
+          <label class="block text-sm text-slate-300 mb-1" for="password">Mot de passe</label>
+          <input id="password" type="password" required autocomplete="current-password"
+                 class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand" />
+        </div>
+        <button id="go" type="submit"
+                class="w-full bg-brand text-white font-semibold py-2 rounded-xl hover:opacity-90 transition">Se connecter</button>
+      </form>
+      <p id="status" class="text-sm text-slate-400 mt-4"></p>
+    </section>
+  </main>
+
+  <script>
+    const BASE = import.meta.env.PUBLIC_SUPABASE_URL;
+    const KEY = import.meta.env.PUBLIC_SUPABASE_KEY;
+    const REDIR = `${import.meta.env.BASE_URL}/`.replace(/\/$/, '');
+
+    document.getElementById('form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('err')!;
+      const status = document.getElementById('status')!;
+      err.classList.add('hidden');
+      const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+      const password = (document.getElementById('password') as HTMLInputElement).value;
+      status.textContent = '⏳ Connexion…';
+      try {
+        const res = await fetch(`${BASE}/auth/v1/token?grant_type=password`, {
+          method: 'POST',
+          headers: { apikey: KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, gotrue_meta_security: {} }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.msg || data.error_description || 'Identifiants incorrects');
+        localStorage.setItem('cartable_auth', JSON.stringify({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          expires_at: Date.now() + data.expires_in * 1000,
+          email,
+        }));
+        status.textContent = '✅ Connecté — redirection…';
+        setTimeout(() => { window.location.href = REDIR; }, 600);
+      } catch (e: any) {
+        err.textContent = '❌ ' + e.message;
+        err.classList.remove('hidden');
+        status.textContent = '';
+      }
+    });
+  </script>
+</Layout>

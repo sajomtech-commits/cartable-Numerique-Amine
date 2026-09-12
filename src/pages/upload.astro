@@ -46,10 +46,11 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
     pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
     import { getApiKey, genererFiche } from '../lib/ai';
+    import { isLoggedIn } from '../lib/auth';
+    if (!isLoggedIn()) window.location.href = `${import.meta.env.BASE_URL}/login`;
     import { saveFiche } from '../lib/fiches';
 
     const st = document.getElementById('status')!;
-    if (!getApiKey()) document.getElementById('setup')!.classList.remove('hidden');
     document.getElementById('saveKey')?.addEventListener('click', () => {
       const k = (document.getElementById('ocKey') as HTMLInputElement).value.trim();
       if (k) { localStorage.setItem('oc_key', k); document.getElementById('setup')!.classList.add('hidden'); st.textContent = '✅ Clé enregistrée.'; }
@@ -59,7 +60,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
       const file = (document.getElementById('file') as HTMLInputElement).files?.[0];
       const matiere = (document.getElementById('matiere') as HTMLSelectElement).value;
       if (!file) { st.textContent = '⚠️ Choisis un PDF d\'abord.'; return; }
-      if (!getApiKey()) { st.textContent = '⚠️ Ajoute ta clé API OpenCode d\'abord.'; return; }
+      if (!getApiKey() && !import.meta.env.PUBLIC_AI_KEY) { st.textContent = "⚠️ Ajoute ta clé API OpenCode d'abord."; return; }
       st.textContent = '📖 Lecture du PDF…';
       try {
         const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
