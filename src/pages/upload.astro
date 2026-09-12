@@ -1,68 +1,86 @@
 ---
 import Layout from '../layouts/Layout.astro';
+const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Espagnol', 'Histoire-Géo', 'Science Numérique', 'Science Éco', 'Sport'];
 ---
-<Layout title="Upload PDF — Amine">
+<Layout title="Upload — Cartable Amine">
   <main class="max-w-xl mx-auto px-5 py-8">
-    <h1 class="text-2xl font-extrabold mb-2">Téléverser un cours</h1>
-    <p class="text-slate-400 mb-6">PDF → texte (PDF.js) → résumé IA (HuggingFace)</p>
+    <h1 class="text-2xl font-extrabold mb-2">📄 Nouvelle fiche IA</h1>
+    <p class="text-slate-400 mb-6 text-sm">PDF de cours → résumé + points clés + quiz (IA GLM via OpenCode)</p>
+
+    <div id="setup" class="bg-amber-900/40 border border-amber-700 rounded-xl p-4 mb-4 text-sm hidden">
+      <p class="mb-2">Clé API OpenCode Go requise (restera dans ce navigateur).</p>
+      <input id="ocKey" type="password" placeholder="clé opencode (sk-...)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+      <button id="saveKey" class="mt-2 bg-brand text-white px-4 py-2 rounded-xl text-sm font-bold">Enregistrer la clé</button>
+    </div>
 
     <label class="block bg-brand/10 border-2 border-brand/30 border-dashed rounded-2xl p-10 text-center cursor-pointer hover:bg-brand/20 transition mb-4">
       <span class="text-4xl">📄</span>
-      <span class="block mt-2 font-semibold">Cliquez pour choisir un PDF</span>
+      <span class="block mt-2 font-semibold">Choisir un PDF de cours</span>
       <input id="file" type="file" accept=".pdf" class="hidden" />
     </label>
 
-    <div class="mb-2"><label>Matière</label><select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm"><option>SVT</option><option>Maths</option><option>Français</option><option>Physique-Chimie</option><option>Anglais</option><option>Espagnol</option></select></div>
+    <label class="block mb-1 text-sm">Matière</label>
+    <select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-4">
+      {matieres.map((m) => <option>{m}</option>)}
+    </select>
 
-    <label>Clé DeepSeek (si pas dans localStorage)</label>
-    <input id="hfk" type="password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-4" placeholder="sk-..." />
+    <button id="go" class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition">✨ Générer la fiche</button>
 
-    <button onclick="process()" class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition">Résumer avec l'IA</button>
+    <div id="status" class="mt-4 text-sm text-slate-300 min-h-[2rem]"></div>
 
-    <div id="status" class="mt-4 text-sm text-slate-300 min-h-[3rem]"></div>
-    <pre id="res" class="bg-slate-900 rounded-xl p-4 text-xs overflow-auto mt-2 font-mono text-emerald-200 hidden"></pre>
+    <section id="fiche" class="hidden mt-4 bg-slate-900 rounded-2xl p-5 ring-1 ring-slate-800">
+      <h2 id="fTitre" class="text-xl font-bold mb-2"></h2>
+      <p class="text-xs text-slate-500 mb-3" id="fMeta"></p>
+      <h3 class="font-bold text-brand mb-1">Résumé</h3>
+      <p id="fResume" class="text-sm text-slate-200 whitespace-pre-line mb-4"></p>
+      <h3 class="font-bold text-brand mb-1">Points clés</h3>
+      <ul id="fPoints" class="list-disc list-inside text-sm text-slate-200 space-y-1 mb-4"></ul>
+      <h3 class="font-bold text-brand mb-1">Quiz de contrôle</h3>
+      <div id="fQuiz" class="space-y-2 mb-4"></div>
+      <a href={`${import.meta.env.BASE_URL}/revisions`} class="inline-block bg-brand text-white px-4 py-2 rounded-xl text-sm font-semibold">📚 Voir mes fiches</a>
+    </section>
   </main>
 
   <script>
     import * as pdfjsLib from 'pdfjs-dist';
     import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
     pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-    window.process = async () => {
-      const file = document.getElementById('file').files[0];
-      const mat = document.getElementById('matiere').value;
-      const hf = document.getElementById('hfk').value || localStorage.getItem('deepseek_key') || '';
-      if (hf) localStorage.setItem('deepseek_key', hf);
-      const st = document.getElementById('status');
-      if (!file) { st.textContent = 'Choisissez un PDF'; return; }
-      st.textContent = 'Lecture PDF...';
-      const typed = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: typed }).promise;
-      let txt = '';
-      for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
-        const page = await pdf.getPage(i);
-        const tc = await page.getTextContent();
-        txt += tc.items.map((it: any) => it.str).join(' ') + '\n';
-      }
-      st.textContent = 'Envoi IA...';
+    import { getApiKey, genererFiche } from '../lib/ai';
+    import { saveFiche } from '../lib/fiches';
+
+    const st = document.getElementById('status')!;
+    if (!getApiKey()) document.getElementById('setup')!.classList.remove('hidden');
+    document.getElementById('saveKey')?.addEventListener('click', () => {
+      const k = (document.getElementById('ocKey') as HTMLInputElement).value.trim();
+      if (k) { localStorage.setItem('oc_key', k); document.getElementById('setup')!.classList.add('hidden'); st.textContent = '✅ Clé enregistrée.'; }
+    });
+
+    document.getElementById('go')?.addEventListener('click', async () => {
+      const file = (document.getElementById('file') as HTMLInputElement).files?.[0];
+      const matiere = (document.getElementById('matiere') as HTMLSelectElement).value;
+      if (!file) { st.textContent = '⚠️ Choisis un PDF d\'abord.'; return; }
+      if (!getApiKey()) { st.textContent = '⚠️ Ajoute ta clé API OpenCode d\'abord.'; return; }
+      st.textContent = '📖 Lecture du PDF…';
       try {
-        const r = await fetch('https://api.deepseek.com/chat/completions', {
-          method: 'POST', headers: { Authorization: `Bearer ${hf}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'deepseek-chat',
-            messages: [
-              { role: 'system', content: 'Tu es un assistant pédagogique pour un lycéen français.' },
-              { role: 'user', content: `Résume ce chapitre de ${mat} en 10 points max, en markdown :\n\n${txt.slice(0, 6000)}` }
-            ],
-            max_tokens: 800, temperature: 0.3
-          })
-        });
-        const j = await r.json();
-        if (!r.ok) throw new Error(JSON.stringify(j));
-        const out = j.choices?.[0]?.message?.content || JSON.stringify(j);
-        document.getElementById('res').classList.remove('hidden');
-        document.getElementById('res').textContent = out;
-        st.textContent = `Résumé OK (${txt.length} caractères extraits)`;
-      } catch (e: any) { st.textContent = 'Erreur IA: ' + e.message; }
-    };
+        const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+        let txt = '';
+        for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
+          const tc = await (await pdf.getPage(i)).getTextContent();
+          txt += tc.items.map((it: any) => it.str).join(' ') + '\n';
+        }
+        if (txt.trim().length < 200) throw new Error('Texte trop court — PDF scanné ? (pas encore d\'OCR)');
+        st.textContent = '🤖 L\'IA rédige la fiche… (~30 s)';
+        const fiche = await genererFiche(txt, matiere);
+        saveFiche({ matiere, titre: fiche.titre, resume: fiche.resume, pointsCles: fiche.pointsCles, quiz: fiche.quiz });
+        (document.getElementById('fTitre') as HTMLElement).textContent = fiche.titre;
+        (document.getElementById('fMeta') as HTMLElement).textContent = `${matiere} · ${new Date().toLocaleDateString('fr-FR')}`;
+        (document.getElementById('fResume') as HTMLElement).textContent = fiche.resume;
+        (document.getElementById('fPoints') as HTMLElement).innerHTML = fiche.pointsCles.map((p) => `<li>${p}</li>`).join('');
+        (document.getElementById('fQuiz') as HTMLElement).innerHTML = fiche.quiz.map((q) =>
+          `<details class="bg-slate-800 rounded-lg p-3 text-sm"><summary class="font-medium">${q.q}</summary><p class="mt-2 text-emerald-300">${q.r}</p></details>`).join('');
+        document.getElementById('fiche')!.classList.remove('hidden');
+        st.textContent = '✅ Fiche générée et enregistrée !';
+      } catch (e: any) { st.textContent = '❌ ' + e.message; }
+    });
   </script>
 </Layout>

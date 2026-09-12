@@ -1,0 +1,43 @@
+---
+import Layout from '../layouts/Layout.astro';
+const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Espagnol', 'Histoire-Géo', 'Science Numérique', 'Science Éco', 'Sport'];
+---
+<Layout title="Révisions — Cartable Amine">
+  <main class="max-w-2xl mx-auto px-5 py-8">
+    <h1 class="text-2xl font-extrabold mb-2">📚 Fiches de révision</h1>
+    <p class="text-slate-400 text-sm mb-4">Toutes tes fiches générées — relis-les avant chaque contrôle.</p>
+    <select id="filtre" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-6">
+      <option value="">Toutes matières</option>
+      {matieres.map((m) => <option>{m}</option>)}
+    </select>
+    <div id="liste" class="space-y-3"></div>
+    <p id="vide" class="text-slate-500 text-sm hidden">Aucune fiche encore — <a href={`${import.meta.env.BASE_URL}/upload`} class="text-brand underline">génère ta première fiche</a>.</p>
+  </main>
+
+  <script type="module">
+    import { getFiches, deleteFiche } from '../lib/fiches';
+    const liste = document.getElementById('liste')!;
+
+    function render() {
+      const filtre = (document.getElementById('filtre') as HTMLSelectElement).value;
+      const fiches = getFiches().filter((f) => !filtre || f.matiere === filtre);
+      document.getElementById('vide')!.classList.toggle('hidden', fiches.length > 0);
+      liste.innerHTML = fiches.map((f) => `
+        <details class="bg-slate-900 rounded-2xl p-5 ring-1 ring-slate-800">
+          <summary class="font-bold cursor-pointer">${f.titre} <span class="text-xs text-slate-500 font-normal">· ${f.matiere} · ${new Date(f.date).toLocaleDateString('fr-FR')}</span></summary>
+          <h4 class="text-brand font-semibold text-sm mt-3 mb-1">Résumé</h4>
+          <p class="text-sm text-slate-200 whitespace-pre-line">${f.resume}</p>
+          <h4 class="text-brand font-semibold text-sm mt-3 mb-1">Points clés</h4>
+          <ul class="list-disc list-inside text-sm text-slate-200 space-y-1">${f.pointsCles.map((p) => `<li>${p}</li>`).join('')}</ul>
+          <h4 class="text-brand font-semibold text-sm mt-3 mb-1">Quiz</h4>
+          <div>${f.quiz.map((q) => `<details class="bg-slate-800 rounded-lg p-3 text-sm mt-2"><summary class="font-medium">${q.q}</summary><p class="mt-2 text-emerald-300">${q.r}</p></details>`).join('')}</div>
+          <button data-del="${f.id}" class="mt-3 text-xs text-rose-400 hover:text-rose-300">🗑 Supprimer</button>
+        </details>`).join('');
+      liste.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => {
+        deleteFiche((b as HTMLElement).dataset.del!); render();
+      }));
+    }
+    (document.getElementById('filtre') as HTMLSelectElement).addEventListener('change', render);
+    render();
+  </script>
+</Layout>
