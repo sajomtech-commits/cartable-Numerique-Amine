@@ -1,29 +1,8 @@
-// Client IA — opencode Go (Z.AI GLM via OpenCode)
-// Environnement navigateur : la clé est stockée dans localStorage (jamais dans le repo).
-const BASE_URL = 'https://opencode.ai/zen/go/v1';
-const MODEL = 'glm-5.3-flash';
+// IA via Supabase RPC (la clé ne quitte jamais le serveur)
+import { validToken } from './auth';
 
-export function getApiKey(): string {
-  return (typeof document !== 'undefined' ? localStorage.getItem('oc_key') : '') || '';
-}
-
-export async function chat(messages: { role: string; content: string }[], maxTokens = 1200): Promise<string> {
-  const authKey = getApiKey() || import.meta.env.PUBLIC_AI_KEY || '';
-  if (!authKey) throw new Error('Clé API manquante — va dans Réglages.');
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${authKey}`,
-      'x-opencode-session': `cartable-amine-${Date.now()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ model: MODEL, messages, max_tokens: maxTokens, temperature: 0.3 }),
-  });
-  const j = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(j?.error?.message || res.statusText);
-  const c = j?.choices?.[0]?.message;
-  return c?.content || c?.reasoning_content || '';
-}
+const BASE = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const ANON = import.meta.env.PUBLIC_SUPABASE_KEY || '';
 
 export interface FicheResult {
   titre: string;
@@ -33,32 +12,56 @@ export interface FicheResult {
 }
 
 export function parseFiche(md: string): FicheResult {
-  const titre = (md.match(/##\s*TITRE\s*:\s*(.+)/i)?.[1] || 'Cours').trim();
+  const titre = (md.match(/##\s*TITRE:\s*(.+)/i)?.[1] || 'Cours').trim();
   const resumeBlock = md.split(/##\s*RESUME/i)[1]?.split(/^##\s+/m)[0]?.trim() || '';
   const points = md.split(/##\s*POINTS CLES/i)[1]?.split(/^##\s+/m)[0]
     ?.split('\n').map((l) => l.replace(/^[-*\d.)\s]+/, '').trim()).filter(Boolean) || [];
   const quizRaw = md.split(/##\s*QUIZ/i)[1]?.trim() || '';
   const quiz: { q: string; r: string }[] = [];
-  // format attendu : **Q:** question **R:** réponse
   const re = /\*\*Q:\*\*\s*(.+?)\s*\*\*R:\*\*\s*(.+?)(?=\*\*Q:|$)/gs;
   for (const m of quizRaw.matchAll(re)) quiz.push({ q: m[1].trim(), r: m[2].trim() });
   return { titre, resume: resumeBlock, pointsCles: points, quiz };
 }
 
+function headers(token: string): HeadersInit {
+  return { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
 export async function genererFiche(texte: string, matiere: string): Promise<FicheResult> {
-  const prompt = `Tu es un professeur de lycée en France. À partir du cours de ${matiere} ci-dessous, produis une fiche de révision au format EXACT suivant (markdown) :
+  // 1) token utilisateur obligatoire
+  const token = await validToken();
+  if (!token) throw new Error('Session expirée — reconnecte-toi.');
 
-## TITRE: <titre du chapitre>
-## RESUME
-<3 à 4 phrases claires>
-## POINTS CLES
-- <10 points max, un par ligne>
-## QUIZ
-**Q:** <question de contrôle type> **R:** <réponse courte>
-(4 Q/R)
+  // 2) créer le job
+  let res = await fetch(`${BASE}/rest/v1/fiches_jobs?select=id`, {
+    method: 'POST', headers: { ...headers(token), Prefer: 'return=representation' },
+    body: JSON.stringify({ matiere, texte }),
+  });
+  if (!res.ok) throw new Error(`Création du job échouée (${res.status})`);
+  const jobId = (await res.json())[0].id as string;
 
-COURS:
-${texte.slice(0, 12000)}`;
-  const out = await chat([{ role: 'user', content: prompt }], 1500);
-  return { ...parseFiche(out), brut: out } as any;
+  // 3) déclencher + récupérer (la clé IA reste côté serveur)
+  for (const rpc of ['lancer_ia', 'recuperer_ia']) {
+    await fetch(`${BASE}/rest/v1/rpc/${rpc}`, {
+      method: 'POST', headers: headers(token), body: JSON.stringify({ p_key: '' }),
+    });
+  }
+
+  // 4) poll du job (~30 s max)
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 4000));
+    res = await fetch(`${BASE}/rest/v1/fiches_jobs?id=eq.${jobId}&select=statut,resultat,erreur`, {
+      headers: headers(token),
+    });
+    const job = (await res.json())[0];
+    if (job.statut === 'fait') {
+      const md = JSON.parse(job.resultat)?.choices?.[0]?.message?.content || '';
+      const parsed = parseFiche(md);
+      if (!parsed.quiz.length) throw new Error('Réponse IA inattendue — réessaie.');
+      return parsed;
+    }
+    if (job.statut === 'erreur') throw new Error('Erreur IA : ' + (job.erreur || 'réessaie'));
+  }
+  throw new Error('Délai dépassé — réessaie dans une minute.');
 }

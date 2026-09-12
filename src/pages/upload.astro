@@ -7,12 +7,6 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     <h1 class="text-2xl font-extrabold mb-2">📄 Nouvelle fiche IA</h1>
     <p class="text-slate-400 mb-6 text-sm">PDF de cours → résumé + points clés + quiz (IA GLM via OpenCode)</p>
 
-    <div id="setup" class="bg-amber-900/40 border border-amber-700 rounded-xl p-4 mb-4 text-sm hidden">
-      <p class="mb-2">Clé API OpenCode Go requise (restera dans ce navigateur).</p>
-      <input id="ocKey" type="password" placeholder="clé opencode (sk-...)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
-      <button id="saveKey" class="mt-2 bg-brand text-white px-4 py-2 rounded-xl text-sm font-bold">Enregistrer la clé</button>
-    </div>
-
     <label class="block bg-brand/10 border-2 border-brand/30 border-dashed rounded-2xl p-10 text-center cursor-pointer hover:bg-brand/20 transition mb-4">
       <span class="text-4xl">📄</span>
       <span class="block mt-2 font-semibold">Choisir un PDF de cours</span>
@@ -45,22 +39,17 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     import * as pdfjsLib from 'pdfjs-dist';
     import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
     pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-    import { getApiKey, genererFiche } from '../lib/ai';
+    import { genererFiche } from '../lib/ai';
     import { isLoggedIn } from '../lib/auth';
     if (!isLoggedIn()) window.location.href = `${import.meta.env.BASE_URL}/login`;
     import { saveFiche } from '../lib/fiches';
 
     const st = document.getElementById('status')!;
-    document.getElementById('saveKey')?.addEventListener('click', () => {
-      const k = (document.getElementById('ocKey') as HTMLInputElement).value.trim();
-      if (k) { localStorage.setItem('oc_key', k); document.getElementById('setup')!.classList.add('hidden'); st.textContent = '✅ Clé enregistrée.'; }
-    });
 
     document.getElementById('go')?.addEventListener('click', async () => {
       const file = (document.getElementById('file') as HTMLInputElement).files?.[0];
       const matiere = (document.getElementById('matiere') as HTMLSelectElement).value;
       if (!file) { st.textContent = '⚠️ Choisis un PDF d\'abord.'; return; }
-      if (!getApiKey() && !import.meta.env.PUBLIC_AI_KEY) { st.textContent = "⚠️ Ajoute ta clé API OpenCode d'abord."; return; }
       st.textContent = '📖 Lecture du PDF…';
       try {
         const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
