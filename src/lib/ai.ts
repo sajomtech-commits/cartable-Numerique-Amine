@@ -1,56 +1,57 @@
-// IA via proxy VPS (OCR + fiche) — plus de RPC/pg_net
-import { validToken } from './auth';
-
-const PROXY = 'http://192.168.1.51:8899';
-const BASE = import.meta.env.PUBLIC_SUPABASE_URL || '';
+// IA via Edge Function Supabase (HTTPS, même domaine que l'app) — plus de RPC/pg_net, plus d'IP locale.
+// La clé OpenCode reste côté serveur (dans la fonction edge), jamais exposée au navigateur.
+const BASE = (import.meta.env.PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
 const ANON = import.meta.env.PUBLIC_SUPABASE_KEY || '';
+const IA_URL = `${BASE}/functions/v1/cartable-ia`;
 
-export interface FicheResult {
+export interface Fiche {
   titre: string;
   resume: string;
   pointsCles: string[];
   quiz: { q: string; r: string }[];
 }
 
-export function parseFiche(md: string): FicheResult {
-  const titre = (md.match(/##\s*TITRE:\s*(.+)/i)?.[1] || 'Cours').trim();
-  const resumeBlock = md.split(/##\s*RESUME/i)[1]?.split(/^##\s+/m)[0]?.trim() || '';
-  const points = md.split(/##\s*POINTS CLES/i)[1]?.split(/^##\s+/m)[0]
-    ?.split('\n').map((l) => l.replace(/^[-*\d.)\s]+/, '').trim()).filter(Boolean) || [];
-  const quizRaw = md.split(/##\s*QUIZ/i)[1]?.trim() || '';
-  const quiz: { q: string; r: string }[] = [];
-  const re = /\*\*Q:\*\*\s*(.+?)\s*\*\*R:\*\*\s*(.+?)(?=\*\*Q:|$)/gs;
-  for (const m of quizRaw.matchAll(re)) quiz.push({ q: m[1].trim(), r: m[2].trim() });
-  return { titre, resume: resumeBlock, pointsCles: points, quiz };
+async function post(route: string, payload: unknown, timeoutMs = 180000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${IA_URL}${route}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: ANON, Authorization: `Bearer ${ANON}` },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal,
+    });
+    const txt = await res.text();
+    if (!res.ok) throw new Error(`IA ${res.status} — ${txt.slice(0, 200)}`);
+    try {
+      return JSON.parse(txt);
+    } catch {
+      throw new Error('Réponse IA illisible — ' + txt.slice(0, 200));
+    }
+  } catch (e: any) {
+    if (e.name === 'AbortError') throw new Error("L'IA met trop de temps (réessaie avec un PDF plus court).");
+    if (e instanceof TypeError) throw new Error('Connexion au service IA impossible — vérifie ta connexion.');
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
 }
 
-function headers(token: string): HeadersInit {
-  return { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+/** Génère une fiche de révision à partir du texte du cours. */
+export async function genererFiche(texte: string, matiere: string): Promise<Fiche> {
+  const j = await post('/fiche', { texte, matiere });
+  if (j.error) throw new Error(j.error);
+  return {
+    titre: j.titre || 'Fiche',
+    resume: j.resume || '',
+    pointsCles: Array.isArray(j.pointsCles) ? j.pointsCles : [],
+    quiz: Array.isArray(j.quiz) ? j.quiz : [],
+  };
 }
 
-async function proxyPost(route: string, body: any): Promise<any> {
-  const res = await fetch(`${PROXY}${route}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const j = await res.json().catch(() => ({ erreur: `HTTP ${res.status}` }));
-  if (!res.ok) throw new Error(j.erreur || `Proxy ${res.status}`);
-  return j;
-}
-
-// OCR vision : images (dataURL) -> texte
+/** OCR : lit une ou plusieurs pages (images base64) et renvoie le texte du cours. */
 export async function ocrImages(images: string[]): Promise<string> {
-  const j = await proxyPost('/ocr', { images });
-  return j.texte as string;
+  const j = await post('/ocr', { images }, 300000);
+  if (j.error) throw new Error(j.error);
+  return (j.texte || '').trim();
 }
-
-// texte -> fiche (parse la réponse markdown)
-export async function genererFiche(texte: string, matiere: string): Promise<FicheResult> {
-  const j = await proxyPost('/fiche', { matiere, texte: texte.slice(0, 15000) });
-  const parsed = parseFiche(j.markdown || '');
-  if (!parsed.quiz.length) throw new Error('Réponse IA inattendue — réessaie.');
-  return parsed;
-}
-
-export { headers };
