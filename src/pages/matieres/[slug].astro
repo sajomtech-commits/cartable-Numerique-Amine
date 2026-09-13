@@ -6,24 +6,139 @@ export function getStaticPaths() {
 }
 const { slug } = Astro.params;
 const noms: Record<string,string> = { sport:'Sport', math:'Maths', francais:'Français', 'science-num':'Science Numérique', 'histoire-geo':'Histoire-Géo', espagnol:'Espagnol', 'physique-chimie':'Physique-Chimie', svt:'SVT', anglais:'Anglais', 'science-eco':'Science Éco' };
+const emojis: Record<string,string> = { sport:'⚽', math:'📐', francais:'📚', 'science-num':'💻', 'histoire-geo':'🌍', espagnol:'🇪🇸', 'physique-chimie':'⚗️', svt:'🧬', anglais:'🇬🇧', 'science-eco':'📊' };
+const nom = noms[slug] || slug;
+const emoji = emojis[slug] || '📖';
+
+// Programme officiel de seconde (2025-2026) par matière
+const programme: Record<string, { titre: string; chapitres: string[] }[]> = {
+  math: [
+    { titre: 'Nombres et calculs', chapitres: ['Nombres et calculs numériques', 'Calcul littéral', 'Vecteurs et translation', 'Repères, distances'] },
+    { titre: 'Géométrie', chapitres: ['Géométrie dans le plan', 'Géométrie dans l\'espace (vecteurs)'] },
+    { titre: 'Fonctions', chapitres: ['Généralités sur les fonctions', 'Variations, extremums', 'Fonctions de référence (carré, inverse, racine)', 'Fonctions polynômes du second degré', 'Trigonométrie (cercle trigo, cosinus, sinus)'] },
+    { titre: 'Statistiques et probabilités', chapitres: ['Statistique descriptive, échantillonnage', 'Probabilités sur un ensemble fini'] },
+    { titre: 'Algorithmique et programmation', chapitres: ['Python : variables, conditions, boucles', 'Notion d\'algorithme'] },
+  ],
+  francais: [
+    { titre: 'Littérature d\'idées du XVIe au XVIIIe siècle', chapitres: ['Persuader, convaincre, délibérer', 'Montaigne (essais)', 'La Fontaine (fables)', 'Voltaire (conte philosophique)'] },
+    { titre: 'Le roman et le récit du Moyen Âge au XXIe siècle', chapitres: ['Écrire et transformer le récit', 'Le roman réaliste', 'Le récit d\'anticipation'] },
+    { titre: 'Théâtre du XVIIe au XXIe siècle', chapitres: ['Représenter et dramatiser', 'La comédie et le registre comique', 'Le tragique et le pathétique'] },
+    { titre: 'Poésie du XIXe au XXIe siècle', chapitres: ['Le poète dans son siècle', 'Baudelaire, Rimbaud, Verlaine', 'La poésie contemporaine'] },
+    { titre: 'Langue française', chapitres: ['Grammaire, orthographe, style', 'Écriture et réécriture', 'Épreuves anticipées (EAF : oral + écrit)'] },
+  ],
+  'physique-chimie': [
+    { titre: 'Constitution et transformations de la matière', chapitres: ['Modélisation de la matière (molécules, ions)', 'Quantité de matière, mole', 'Réactions acide-base', 'Électrolyse, piles', 'Optique : lentilles, lois de Snell-Descartes'] },
+    { titre: 'Mouvement et interactions', chapitres: ['Description du mouvement', 'Forces, principe d\'inertie', 'Pression et forces pressantes'] },
+    { titre: 'L\'énergie : conversions et transferts', chapitres: ['Énergie cinétique et potentielle', 'Conservation de l\'énergie', 'Transferts thermiques', 'Ondes et signaux'] },
+  ],
+  svt: [
+    { titre: 'La Terre dans l\'Univers, la vie et l\'évolution du vivant', chapitres: ['Génétique et diversité des individus', 'ADN et mutation', 'Évolution des espèces', 'La cellule, unité du vivant'] },
+    { titre: 'Enjeux planétaires contemporains', chapitres: ['Écosystèmes et services rendus', 'Sols et agriculture durable', 'Énergie et combustibles fossiles'] },
+    { titre: 'Le corps humain et la santé', chapitres: ['Système immunitaire', 'Neurone, réflexe, cerveau', 'Comportement et santé'] },
+  ],
+  'histoire-geo': [
+    { titre: 'Histoire', chapitres: ['Croissance économique et mondialisation depuis 1945', 'La Seconde Guerre mondiale', 'La Guerre froide', 'Décolonisation', 'La Ve République'] },
+    { titre: 'Géographie', chapitres: ['Mers et océans : enjeux maritimes', 'Dynamiques territoriales de la France', 'La France : nouvelles dynamiques spatiales', 'Étude de cas : la France en villes'] },
+    { titre: 'EMC (Enseignement moral et civique)', chapitres: ['Citoyenneté et démocratie', 'Laïcité', 'Défense et sécurité nationale'] },
+  ],
+  anglais: [
+    { titre: 'Langue', chapitres: ['Grammaire : temps, modaux, voix passive', 'Vocabulaire thématique (société, médias, environnement)', 'Phonétique et accentuation'] },
+    { titre: 'Compréhension et expression', chapitres: ['Compréhension orale (documents audio)', 'Compréhension écrite (articles, extraits)', 'Expression écrite (essai, argumentation)', 'Expression orale continue (présentation)'] },
+    { titre: 'Culture anglophone', chapitres: ['Espaces et échanges', 'Lieux et formes de pouvoir', 'Idée de progrès', 'Mythes et héros'] },
+  ],
+  espagnol: [
+    { titre: 'Langue', chapitres: ['Grammaire : passé simple, subjonctif présent', 'Vocabulaire thématique', 'Phonétique espagnole'] },
+    { titre: 'Compréhension et expression', chapitres: ['Compréhension orale et écrite', 'Expression écrite et orale', 'Interaction (dialogue)'] },
+    { titre: 'Culture hispanophone', chapitres: ['Espagne : régions et cultures', 'Amérique latine : civilisations et actualité', 'Thèmes : immigration, émancipation, art'] },
+  ],
+  'science-num': [
+    { titre: 'Représentation des données', chapitres: ['Binaire, hexadécimal', 'Booléens et logique', 'Représentation des textes, images, sons'] },
+    { titre: 'Types de données de base', chapitres: ['Nombres entiers et réels', 'Caractères et chaînes'] },
+    { titre: 'Algorithmique', chapitres: ['Variables, conditions, boucles', 'Fonctions', 'Tri et recherche', 'Complexité'] },
+    { titre: 'Architecture et réseaux', chapitres: ['Architecture von Neumann', 'Systèmes d\'exploitation', 'Réseaux : IP, protocoles', 'Web : HTML, CSS'] },
+    { titre: 'Langage Python', chapitres: ['Syntaxe de base', 'Bibliothèques usuelles', 'Projet final'] },
+  ],
+  'science-eco': [
+    { titre: 'Les grands enjeux économiques et sociaux', chapitres: ['Croissance, fluctuations et crises', 'Chômage et emploi', 'Inégalités sociales', 'Globalisation'] },
+    { titre: 'Science économique', chapitres: ['Marché et prix', 'Entreprise : production, coût, revenus', 'Monnaie et financement'] },
+    { titre: 'Sociologie et science politique', chapitres: ['Socialisation', 'Groupes et réseaux sociaux', 'Démocratie et participation'] },
+    { titre: 'Regards croisés', chapitres: ['Consommation et modes de vie', 'Travail, emploi, chômage'] },
+  ],
+  sport: [
+    { titre: 'Activités physiques et sportives (APS)', chapitres: ['Natation', 'Athlétisme (course, saut, lancer)', 'Gymnastique', 'Sports collectifs (foot, basket, hand, volley)', 'Badminton, tennis de table', 'Danse', 'Escalade'] },
+    { titre: 'Évaluation et santé', chapitres: ['Épreuves pratiques (contrôle continu)', 'Éducation à la santé', 'Préparation physique'] },
+  ],
+};
+
+const prog = programme[slug] || [];
+const chapTotal = prog.reduce((acc, p) => acc + p.chapitres.length, 0);
 ---
-<Layout title={noms[slug] || 'Matière — Amine'}>
+<Layout title={nom + ' — Amine'}>
   <main class="max-w-2xl mx-auto px-5 py-8">
     <a href={import.meta.env.BASE_URL} class="text-xs text-brand hover:underline mb-4 inline-block">← Accueil</a>
-    <h1 class="text-3xl font-extrabold mb-2">{noms[slug] || slug}</h1>
-    <p class="text-slate-400 mb-6">Cours, fiches et résumés IA pour cette matière.</p>
+    <h1 class="text-3xl font-extrabold mb-2">{emoji} {nom}</h1>
+    <p class="text-slate-400 mb-6">Programme de seconde, fiches et résumés IA pour cette matière.</p>
 
-    <a href={`${import.meta.env.BASE_URL}/upload`} class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (PDF)</a>
+    <a href={`${import.meta.env.BASE_URL}/upload?matiere=${encodeURIComponent(nom)}`} class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (PDF)</a>
 
-    <section class="grid gap-4">
-      <div class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl">
-        <h3 class="font-bold text-lg mb-2">📄 Cours récents</h3>
-        <p class="text-slate-400 text-sm">Aucun cours encore. Utilise le bouton ci-dessus pour téléverser un PDF.</p>
-      </div>
-      <div class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl">
-        <h3 class="font-bold text-lg mb-2">🤖 Résumé IA (dernier)</h3>
-        <p class="text-slate-400 text-sm">Pas de résumé pour cette matière. Ajoute un cours d'abord.</p>
+    <section class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl mb-4">
+      <h3 class="font-bold text-lg mb-3">📋 Programme de seconde <span class="text-xs font-normal text-slate-500">({chapTotal} chapitres)</span></h3>
+      {prog.length === 0 && <p class="text-slate-400 text-sm">Programme à venir.</p>}
+      <div class="space-y-3">
+        {prog.map((theme) => (
+          <div>
+            <p class="font-semibold text-sm text-brand mb-1">{theme.titre}</p>
+            <ul class="list-disc list-inside text-sm text-slate-300 space-y-0.5">
+              {theme.chapitres.map((c) => <li>{c}</li>)}
+            </ul>
+          </div>
+        ))}
       </div>
     </section>
+
+    <section id="fiches-matiere" class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl" data-matiere={nom}>
+      <h3 class="font-bold text-lg mb-3">🤖 Mes fiches IA — {nom}</h3>
+      <div id="fiches-list" class="space-y-3">
+        <p class="text-slate-400 text-sm">Chargement…</p>
+      </div>
+      <a href={`${import.meta.env.BASE_URL}/revisions`} class="inline-block mt-3 text-xs text-brand hover:underline">→ Toutes mes fiches</a>
+    </section>
   </main>
+</Layout>
+
+<script>
+  import { getFiches, deleteFiche } from '../../lib/fiches';
+  import { isLoggedIn } from '../../lib/auth';
+  const section = document.getElementById('fiches-matiere')!;
+  const matiere = section.getAttribute('data-matiere')!;
+  const list = document.getElementById('fiches-list')!;
+  if (!isLoggedIn()) {
+    list.innerHTML = '<p class="text-slate-400 text-sm">🔒 <a class="text-brand hover:underline" href="' + import.meta.env.BASE_URL + '/login">Connecte-toi</a> pour voir tes fiches de cette matière.</p>';
+  } else {
+    try {
+      const fiches = (await getFiches()).filter((f) => f.matiere === matiere);
+      if (fiches.length === 0) {
+        list.innerHTML = '<p class="text-slate-400 text-sm">Aucune fiche pour cette matière. Ajoute un cours PDF ci-dessus !</p>';
+      } else {
+        list.innerHTML = fiches.map((f) =>
+          '<details class="bg-slate-800 rounded-xl p-4 text-sm">' +
+          '<summary class="font-semibold cursor-pointer">' + f.titre + ' <span class="text-xs text-slate-500 font-normal">· ' + new Date(f.date).toLocaleDateString('fr-FR') + '</span></summary>' +
+          '<p class="mt-2 text-slate-200 whitespace-pre-line">' + f.resume + '</p>' +
+          (f.pointsCles.length ? '<p class="mt-2 font-semibold text-brand">Points clés</p><ul class="list-disc list-inside text-slate-200 mt-1 space-y-0.5">' + f.pointsCles.map((p) => '<li>' + p + '</li>').join('') + '</ul>' : '') +
+          '<button data-del="' + f.id + '" class="mt-3 text-xs text-red-400 hover:text-red-300">🗑 Supprimer</button>' +
+          '</details>').join('');
+        list.querySelectorAll('[data-del]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (confirm('Supprimer cette fiche ?')) {
+              await deleteFiche((btn as HTMLElement).getAttribute('data-del')!);
+              (btn as HTMLElement).closest('details')?.remove();
+            }
+          });
+        });
+      }
+    } catch {
+      list.innerHTML = '<p class="text-slate-400 text-sm">❌ Impossible de charger les fiches.</p>';
+    }
+  }
+</script>
 </Layout>

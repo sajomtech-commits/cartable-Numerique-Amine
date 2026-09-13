@@ -45,6 +45,14 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     import { saveFiche } from '../lib/fiches';
 
     const st = document.getElementById('status')!;
+    // Pré-remplir la matière si ?matiere=... (lien depuis une page matière)
+    const params = new URLSearchParams(window.location.search);
+    const mParam = params.get('matiere');
+    if (mParam) {
+      const sel = document.getElementById('matiere') as HTMLSelectElement;
+      const found = Array.from(sel.options).find((o) => o.value === mParam || o.text === mParam);
+      if (found) sel.value = found.value;
+    }
 
     document.getElementById('go')?.addEventListener('click', async () => {
       const file = (document.getElementById('file') as HTMLInputElement).files?.[0];
