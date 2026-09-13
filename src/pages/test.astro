@@ -73,7 +73,7 @@ import Layout from '../layouts/Layout.astro';
       try { const g = await validToken(); t += g ? ' + token OK' : ' (refresh en échec)'; } catch { t += ' (refresh err)'; }
       render('auth', { ok: !!sess, label: 'Connexion Supabase', detail: t });
     } else {
-      render('auth', { ok: false, label: 'Connexion Supabase', detail: 'Non connecté.' });
+      render('auth', { ok: false, label: 'Connexion Supabase', detail: `Non connecté. <button class="do-login mt-1 bg-brand text-white text-xs px-3 py-1.5 rounded-lg font-semibold">🔐 Se connecter</button>` });
     }
 
     // Bouton connexion inline (étape 1)
