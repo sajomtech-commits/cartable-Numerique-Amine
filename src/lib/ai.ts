@@ -42,9 +42,10 @@ export async function genererFiche(texte: string, matiere: string): Promise<Fich
 
   // 3) déclencher + récupérer (la clé IA reste côté serveur)
   for (const rpc of ['lancer_ia', 'recuperer_ia']) {
-    await fetch(`${BASE}/rest/v1/rpc/${rpc}`, {
-      method: 'POST', headers: headers(token), body: JSON.stringify({ p_key: '' }),
+    const rr = await fetch(`${BASE}/rest/v1/rpc/${rpc}`, {
+      method: 'POST', headers: headers(token), body: JSON.stringify({}),
     });
+    if (!rr.ok) throw new Error(`RPC ${rpc} a échoué (${rr.status})`);
   }
 
   // 4) poll du job (~30 s max)
