@@ -22,13 +22,12 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     <button id="go" class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-50">✨ Générer la fiche</button>
     <div id="status" class="mt-4 text-sm text-slate-300 min-h-[2rem]"></div>
 
-    <section id="fiche" class="hidden mt-4 bg-slate-900 rounded-2xl p-5 ring-1 ring-slate-800">
-      <h2 id="fTitre" class="text-xl font-bold mb-2"></h2>
-      <h3 class="font-bold text-brand mb-1">Résumé</h3>
-      <p id="fResume" class="text-sm text-slate-200 whitespace-pre-line mb-4"></p>
-      <h3 class="font-bold text-brand mb-1">Points clés</h3>
-      <ul id="fPoints" class="list-disc list-inside text-sm text-slate-200 space-y-1 mb-4"></ul>
-      <h3 class="font-bold text-brand mb-1">Quiz de contrôle</h3>
+    <section id="fiche" class="hidden mt-6 bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800">
+      <h2 id="fTitre" class="text-xl font-extrabold mb-4 leading-snug"></h2>
+      <div id="fResume" class="mb-2"></div>
+      <h3 class="font-bold text-brand mt-6 mb-2 pb-1 border-b border-slate-800">Points clés</h3>
+      <ul id="fPoints" class="space-y-1.5 text-sm text-slate-200 mb-2"></ul>
+      <h3 class="font-bold text-brand mt-6 mb-1 pb-1 border-b border-slate-800">Quiz de contrôle</h3>
       <div id="fQuiz" class="space-y-2 mb-4"></div>
       <a href={`${import.meta.env.BASE_URL}/revisions`} class="inline-block bg-brand text-white px-4 py-2 rounded-xl text-sm font-semibold">📚 Voir mes fiches</a>
     </section>
@@ -41,6 +40,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     import { isLoggedIn } from '../lib/auth';
     import { genererFiche, ocrImages } from '../lib/ai';
     import { saveFiche } from '../lib/fiches';
+    import { resumeHTML, esc } from '../lib/rendu';
 
     if (!isLoggedIn()) window.location.href = `${import.meta.env.BASE_URL}/login`;
 
@@ -121,11 +121,13 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         catch (e: any) { st.textContent = '⚠️ Fiche générée mais sauvegarde échouée : ' + e.message; }
         document.getElementById('fiche')?.classList.remove('hidden');
         document.getElementById('fTitre')!.textContent = fiche.titre;
-        document.getElementById('fResume')!.textContent = fiche.resume;
-        document.getElementById('fPoints')!.innerHTML = fiche.pointsCles.map((p) => `<li>${p}</li>`).join('');
+        document.getElementById('fResume')!.innerHTML = resumeHTML(fiche.resume);
+        document.getElementById('fPoints')!.innerHTML = fiche.pointsCles.map((p) => `<li class="leading-relaxed pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('');
         document.getElementById('fQuiz')!.innerHTML = fiche.quiz.map((q) => `
-          <div class="bg-slate-950 rounded-xl p-3"><div class="text-sm font-semibold">Q : ${q.q}</div>
-          <div class="text-xs text-slate-400 mt-1">R : ${q.r}</div></div>`).join('');
+          <details class="bg-slate-950 rounded-xl p-3">
+            <summary class="text-sm font-medium cursor-pointer">${esc(q.q)}</summary>
+            <p class="text-sm text-emerald-300 mt-2">${esc(q.r)}</p>
+          </details>`).join('');
       } catch (err: any) {
         st.textContent = '❌ ' + (err.message || String(err));
       } finally {
