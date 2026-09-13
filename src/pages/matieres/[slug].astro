@@ -79,7 +79,7 @@ const chapTotal = prog.reduce((acc, p) => acc + p.chapitres.length, 0);
     <h1 class="text-3xl font-extrabold mb-2">{emoji} {nom}</h1>
     <p class="text-slate-400 mb-6">Programme de seconde, fiches et résumés IA pour cette matière.</p>
 
-    <a href={`${import.meta.env.BASE_URL}/upload?matiere=${encodeURIComponent(nom)}`} class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (PDF)</a>
+    <a href={`${import.meta.env.BASE_URL}/fiche?matiere=${encodeURIComponent(nom)}`} class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (PDF)</a>
 
     <section class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl mb-4">
       <h3 class="font-bold text-lg mb-3">📋 Programme de seconde <span class="text-xs font-normal text-slate-500">({chapTotal} chapitres)</span></h3>
