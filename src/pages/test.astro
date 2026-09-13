@@ -73,17 +73,26 @@ import Layout from '../layouts/Layout.astro';
       try { const g = await validToken(); t += g ? ' + token OK' : ' (refresh en échec)'; } catch { t += ' (refresh err)'; }
       render('auth', { ok: !!sess, label: 'Connexion Supabase', detail: t });
     } else {
-      render('auth', { ok: false, label: 'Connexion Supabase', detail: `Non connecté. <button class="do-login mt-1 bg-brand text-white text-xs px-3 py-1.5 rounded-lg font-semibold">🔐 Se connecter</button>` });
+      render('auth', { ok: false, label: 'Connexion Supabase', detail: `Non connecté.
+        <div class="mt-2 flex flex-wrap gap-2 items-center">
+          <input id="liEmail" type="email" placeholder="email" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs w-44" />
+          <input id="liPass" type="password" placeholder="mot de passe" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs w-36" />
+          <button id="liGo" class="bg-brand text-white text-xs px-3 py-1.5 rounded-lg font-semibold">🔐 Se connecter</button>
+        </div>
+        <div id="liErr" class="text-xs text-red-300 mt-1"></div>` });
     }
 
-    // Bouton connexion inline (étape 1)
+    // Connexion inline (étape 1)
     box.addEventListener('click', async (e) => {
       const tgt = e.target as HTMLElement;
-      if (!tgt.classList.contains('do-login')) return;
-      const email = prompt('Email :'); if (!email) return;
-      const pass = prompt('Mot de passe :'); if (!pass) return;
+      if (tgt.id !== 'liGo') return;
+      const email = (document.getElementById('liEmail') as HTMLInputElement).value.trim();
+      const pass = (document.getElementById('liPass') as HTMLInputElement).value;
+      const err = document.getElementById('liErr')!;
+      if (!email || !pass) { err.textContent = 'Email et mot de passe requis.'; return; }
+      err.textContent = '⏳ Connexion…';
       try { await login(email, pass); location.reload(); }
-      catch (err: any) { alert('Erreur : ' + err.message); }
+      catch (ex: any) { err.textContent = '❌ ' + (ex.message || String(ex)); }
     });
 
     // ---- Étape 2 : extraction PDF ----
