@@ -1,0 +1,136 @@
+---
+import Layout from '../layouts/Layout.astro';
+const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Espagnol', 'Histoire-Géo', 'Science Numérique', 'Science Éco', 'Sport'];
+---
+<Layout title="Fiche IA — Cartable Amine">
+  <main class="max-w-xl mx-auto px-5 py-8">
+    <h1 class="text-2xl font-extrabold mb-1">📄 Nouvelle fiche</h1>
+    <p class="text-slate-400 text-sm mb-6">PDF de cours (ou scanné) → lecture OCR/IA → fiche de révision + quiz</p>
+
+    <label class="block bg-brand/10 border-2 border-brand/30 border-dashed rounded-2xl p-10 text-center cursor-pointer hover:bg-brand/20 transition mb-4">
+      <span class="text-4xl">📄</span>
+      <span class="block mt-2 font-semibold">Choisir un PDF de cours</span>
+      <input id="file" type="file" accept=".pdf" class="hidden" />
+    </label>
+    <p id="pdfInfo" class="text-xs text-slate-500 mb-4"></p>
+
+    <label class="block mb-1 text-sm">Matière</label>
+    <select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-4">
+      {matieres.map((m) => <option>{m}</option>)}
+    </select>
+
+    <button id="go" class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-50">✨ Générer la fiche</button>
+    <div id="status" class="mt-4 text-sm text-slate-300 min-h-[2rem]"></div>
+
+    <section id="fiche" class="hidden mt-4 bg-slate-900 rounded-2xl p-5 ring-1 ring-slate-800">
+      <h2 id="fTitre" class="text-xl font-bold mb-2"></h2>
+      <h3 class="font-bold text-brand mb-1">Résumé</h3>
+      <p id="fResume" class="text-sm text-slate-200 whitespace-pre-line mb-4"></p>
+      <h3 class="font-bold text-brand mb-1">Points clés</h3>
+      <ul id="fPoints" class="list-disc list-inside text-sm text-slate-200 space-y-1 mb-4"></ul>
+      <h3 class="font-bold text-brand mb-1">Quiz de contrôle</h3>
+      <div id="fQuiz" class="space-y-2 mb-4"></div>
+      <a href={`${import.meta.env.BASE_URL}/revisions`} class="inline-block bg-brand text-white px-4 py-2 rounded-xl text-sm font-semibold">📚 Voir mes fiches</a>
+    </section>
+  </main>
+
+  <script>
+    import * as pdfjsLib from 'pdfjs-dist';
+    import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+    import { isLoggedIn } from '../lib/auth';
+    import { genererFiche, ocrImages } from '../lib/ai';
+    import { saveFiche } from '../lib/fiches';
+
+    if (!isLoggedIn()) window.location.href = `${import.meta.env.BASE_URL}/login`;
+
+    const st = document.getElementById('status')!;
+    const params = new URLSearchParams(window.location.search);
+    const mParam = params.get('matiere');
+    if (mParam) {
+      const sel = document.getElementById('matiere') as HTMLSelectElement;
+      const found = Array.from(sel.options).find((o) => o.value === mParam || o.text === mParam);
+      if (found) sel.value = found.value;
+    }
+
+    let dernierTexte = '';
+
+    // Étape 1 : extraction PDF (texte direct, sinon OCR vision page par page)
+    document.getElementById('file')?.addEventListener('change', async (e) => {
+      const f = (e.target as HTMLInputElement).files?.[0];
+      const info = document.getElementById('pdfInfo')!;
+      if (!f) return;
+      info.textContent = '⏳ Lecture du PDF…';
+      try {
+        const buf = await f.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        let full = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const tc = await page.getTextContent();
+          full += tc.items.map((it: any) => ('str' in it ? it.str : '')).join(' ') + '\n';
+        }
+        full = full.trim();
+        // PDF scanné (peu de texte) → OCR vision des pages
+        if (full.length < 200 && pdf.numPages <= 8) {
+          info.textContent = `⏳ PDF scanné détecté (${pdf.numPages} p.) — lecture OCR par l'IA (peut prendre 1–3 min)…`;
+          const images: string[] = [];
+          const scale = 2; // ~144 dpi
+          const blobToB64 = (blob: Blob): Promise<string> => new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res((r.result as string).split(',')[1] || '');
+            r.onerror = rej; r.readAsDataURL(blob);
+          });
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const vp = page.getViewport({ scale });
+            const canvas = document.createElement('canvas');
+            canvas.width = vp.width; canvas.height = vp.height;
+            await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport: vp }).promise;
+            const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', 0.85));
+            images.push(`data:image/jpeg;base64,${await blobToB64(blob)}`);
+          }
+          const ocr = await ocrImages(images);
+          full = ocr.trim();
+          info.textContent = `✅ OCR terminé (${pdf.numPages} pages lues).`;
+        } else {
+          info.textContent = `✅ ${pdf.numPages} page(s) — texte extrait (${full.length} caractères).` +
+            (full.length < 200 ? ' ⚠️ PDF trop long ou trop scanné pour OCR auto (max 8 pages).' : '');
+        }
+        dernierTexte = full;
+        if (dernierTexte.length >= 100) {
+          document.getElementById('go')!.removeAttribute('disabled');
+        }
+      } catch (err: any) {
+        info.textContent = '❌ ' + (err.message || String(err));
+      }
+    });
+
+    // Étape 2 : génération fiche + sauvegarde auto
+    document.getElementById('go')?.addEventListener('click', async () => {
+      const matiere = (document.getElementById('matiere') as HTMLSelectElement).value;
+      if (!dernierTexte || dernierTexte.length < 50) { st.textContent = "⚠️ Choisis d'abord un PDF lisible."; return; }
+      const go = document.getElementById('go') as HTMLButtonElement;
+      go.disabled = true;
+      document.getElementById('fiche')?.classList.add('hidden');
+      st.textContent = '⏳ IA en cours (~10–40 s)…';
+      try {
+        const fiche = await genererFiche(dernierTexte, matiere);
+        st.textContent = '✅ Fiche générée — sauvegarde…';
+        try { await saveFiche({ ...fiche, matiere }); st.textContent = '✅ Fiche générée et sauvegardée !'; }
+        catch (e: any) { st.textContent = '⚠️ Fiche générée mais sauvegarde échouée : ' + e.message; }
+        document.getElementById('fiche')?.classList.remove('hidden');
+        document.getElementById('fTitre')!.textContent = fiche.titre;
+        document.getElementById('fResume')!.textContent = fiche.resume;
+        document.getElementById('fPoints')!.innerHTML = fiche.pointsCles.map((p) => `<li>${p}</li>`).join('');
+        document.getElementById('fQuiz')!.innerHTML = fiche.quiz.map((q) => `
+          <div class="bg-slate-950 rounded-xl p-3"><div class="text-sm font-semibold">Q : ${q.q}</div>
+          <div class="text-xs text-slate-400 mt-1">R : ${q.r}</div></div>`).join('');
+      } catch (err: any) {
+        st.textContent = '❌ ' + (err.message || String(err));
+      } finally {
+        go.disabled = false;
+      }
+    });
+  </script>
+</Layout>
