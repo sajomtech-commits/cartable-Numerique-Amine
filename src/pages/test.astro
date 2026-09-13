@@ -1,0 +1,175 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="Test — Cartable Amine">
+  <main class="max-w-2xl mx-auto px-5 py-8">
+    <h1 class="text-2xl font-extrabold mb-1">🧪 Page de test</h1>
+    <p class="text-slate-400 text-sm mb-6">Chaque étape du pipeline « PDF → fiche IA » testée séparément.</p>
+
+    <section id="steps" class="space-y-2 mb-6"></section>
+
+    <section class="bg-slate-900 rounded-2xl p-5 ring-1 ring-slate-800 mb-6">
+      <h2 class="font-bold text-brand mb-2">📄 Test PDF texte (sans IA)</h2>
+      <label class="block text-sm mb-1">PDF de cours (texte sélectionnable)</label>
+      <input id="pdfFile" type="file" accept=".pdf" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-3" />
+      <button id="btnPdf" class="bg-brand hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-xl text-sm">Extraire le texte</button>
+      <pre id="pdfOut" class="hidden mt-3 text-xs text-slate-300 bg-slate-950 rounded-xl p-3 max-h-64 overflow-auto whitespace-pre-wrap"></pre>
+      <p id="pdfInfo" class="text-xs text-slate-500 mt-2"></p>
+    </section>
+
+    <section class="bg-slate-900 rounded-2xl p-5 ring-1 ring-slate-800 mb-6">
+      <h2 class="font-bold text-brand mb-2">✍️ Test texte manuel → IA</h2>
+      <select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-3">
+        <option>Maths</option><option>Français</option><option>Physique-Chimie</option><option>SVT</option>
+        <option>Anglais</option><option>Espagnol</option><option>Histoire-Géo</option>
+        <option>Science Numérique</option><option>Science Éco</option><option>Sport</option>
+      </select>
+      <textarea id="texte" rows="5" placeholder="Colle le texte du cours ici (ou laisse le texte d'exemple pré-rempli après un test PDF)…" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-3"></textarea>
+      <button id="btnIa" class="bg-brand hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-xl text-sm">✨ Générer la fiche (pipeline complet)</button>
+      <button id="btnSave" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm ml-2">💾 Sauver cette fiche</button>
+      <p id="iaStatus" class="text-xs text-slate-500 mt-2"></p>
+    </section>
+
+    <section id="ficheOut" class="hidden bg-slate-900 rounded-2xl p-5 ring-1 ring-slate-800">
+      <h2 id="fTitre" class="text-xl font-bold mb-2"></h2>
+      <h3 class="font-bold text-brand mb-1">Résumé</h3>
+      <p id="fResume" class="text-sm text-slate-200 whitespace-pre-line mb-4"></p>
+      <h3 class="font-bold text-brand mb-1">Points clés</h3>
+      <ul id="fPoints" class="list-disc list-inside text-sm text-slate-200 space-y-1 mb-4"></ul>
+      <h3 class="font-bold text-brand mb-1">Quiz</h3>
+      <div id="fQuiz" class="space-y-2 mb-4"></div>
+    </section>
+  </main>
+
+  <script>
+    import * as pdfjsLib from 'pdfjs-dist';
+    import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+    import { getSession, login, validToken, logout, isLoggedIn } from '../lib/auth';
+    import { genererFiche, parseFiche } from '../lib/ai';
+    import { saveFiche } from '../lib/fiches';
+
+    interface StepResult { ok: boolean; label: string; detail: string; html?: string }
+    const steps: Record<string, { ok: boolean; label: string; detail: string; html?: string }> = {};
+    const box = document.getElementById('steps')!;
+
+    function render(k: string, r: { ok: boolean; label: string; detail: string; html?: string }) {
+      steps[k] = r;
+      box.innerHTML = Object.entries(steps).map(([key, s]) => `
+        <div class="flex items-start gap-3 bg-slate-900 rounded-xl px-4 py-3 ring-1 ${s.ok ? 'ring-emerald-800' : 'ring-red-900'}">
+          <span>${s.ok ? '✅' : '❌'}</span>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold ${s.ok ? 'text-emerald-300' : 'text-red-300'}">${s.label}</div>
+            <div class="text-xs text-slate-400 whitespace-pre-wrap break-words">${s.detail}</div>
+            ${s.html || ''}
+          </div>
+        </div>`).join('');
+    }
+
+    // ---- Étape 1 : session ----
+    const sess = getSession();
+    if (sess) {
+      let t = 'session ' + sess.email;
+      try { const g = await validToken(); t += g ? ' + token OK' : ' (refresh en échec)'; } catch { t += ' (refresh err)'; }
+      render('auth', { ok: !!sess, label: 'Connexion Supabase', detail: t });
+    } else {
+      render('auth', { ok: false, label: 'Connexion Supabase', detail: 'Non connecté.' });
+    }
+
+    // Bouton connexion inline (étape 1)
+    box.addEventListener('click', async (e) => {
+      const tgt = e.target as HTMLElement;
+      if (!tgt.classList.contains('do-login')) return;
+      const email = prompt('Email :'); if (!email) return;
+      const pass = prompt('Mot de passe :'); if (!pass) return;
+      try { await login(email, pass); location.reload(); }
+      catch (err: any) { alert('Erreur : ' + err.message); }
+    });
+
+    // ---- Étape 2 : extraction PDF ----
+    let dernierTexte = '';
+    document.getElementById('btnPdf')?.addEventListener('click', async () => {
+      const f = (document.getElementById('pdfFile') as HTMLInputElement).files?.[0];
+      const info = document.getElementById('pdfInfo')!;
+      const out = document.getElementById('pdfOut')!;
+      if (!f) { info.textContent = '⚠️ Choisis un PDF.'; return; }
+      info.textContent = '⏳ Extraction…';
+      try {
+        const buf = await f.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        let full = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const tc = await page.getTextContent();
+          full += tc.items.map((it: any) => ('str' in it ? it.str : '')).join(' ') + '\n';
+        }
+        dernierTexte = full.trim();
+        out.classList.remove('hidden');
+        out.textContent = dernierTexte.slice(0, 3000) + (dernierTexte.length > 3000 ? '\n… (tronqué à l affichage)' : '');
+        info.textContent = `✅ ${pdf.numPages} page(s) — ${dernierTexte.length} caractères extraits.` + (dernierTexte.length < 200 ? ' ⚠️ Peu de texte : PDF probablement scanné.' : '');
+        // pré-remplir la zone de test IA
+        if (dernierTexte.length > 100) (document.getElementById('texte') as HTMLTextAreaElement).value = dernierTexte.slice(0, 15000);
+      } catch (err: any) {
+        info.textContent = '❌ ' + (err.message || String(err));
+      }
+    });
+
+    // ---- Étape 3 : pipeline IA (avec fallback texte d exemple) ----
+    let derniereFiche: ReturnType<typeof parseFiche> | null = null;
+    document.getElementById('btnIa')?.addEventListener('click', async () => {
+      const st = document.getElementById('iaStatus')!;
+      const sel = document.getElementById('matiere') as HTMLSelectElement;
+      const ta = document.getElementById('texte') as HTMLTextAreaElement;
+      const saveBtn = document.getElementById('btnSave') as HTMLButtonElement;
+      saveBtn.classList.add('hidden');
+      document.getElementById('ficheOut')?.classList.add('hidden');
+      if (!isLoggedIn()) { st.textContent = '❌ Non connecté — clique sur ✅ de la ligne connexion pour te connecter.'; return; }
+      if (!ta.value.trim()) {
+        ta.value = 'Le théorème de Pythagore : dans un triangle rectangle, le carré de la longueur de l hypotenuse est égal à la somme des carrés des deux autres côtés : a² + b² = c². Réciproque : si BC² = AB² + AC² alors le triangle ABC est rectangle en A. Exemple : triangle 3, 4, 5 car 9 + 16 = 25. Usage : calculer une longueur manquante, vérifier qu un angle est droit.';
+        st.textContent = '(texte d exemple rempli automatiquement)';
+      }
+      st.textContent = '⏳ IA en cours (~10–40 s, via Supabase RPC)…';
+      try {
+        derniereFiche = await genererFiche(ta.value.trim(), sel.value);
+        render('ia', { ok: true, label: 'Génération IA (RPC)', detail: `Modèle glm-5.3-flash — fiche « ${derniereFiche.titre} » générée (${derniereFiche.quiz.length} Q/R).` });
+        // afficher
+        const fo = document.getElementById('ficheOut')!;
+        fo.classList.remove('hidden');
+        (document.getElementById('fTitre') as HTMLElement).textContent = derniereFiche.titre;
+        (document.getElementById('fResume') as HTMLElement).textContent = derniereFiche.resume;
+        (document.getElementById('fPoints') as HTMLElement).innerHTML = derniereFiche.pointsCles.map((p) => `<li>${p}</li>`).join('');
+        (document.getElementById('fQuiz') as HTMLElement).innerHTML = derniereFiche.quiz.map((q) => `
+          <div class="bg-slate-950 rounded-xl p-3"><div class="text-sm font-semibold">Q : ${q.q}</div>
+          <div class="text-xs text-slate-400 mt-1">R : ${q.r}</div></div>`).join('');
+        saveBtn.classList.remove('hidden');
+        st.textContent = '✅ Fiche générée. Tu peux la sauver dans tes fiches de révision.';
+      } catch (err: any) {
+        render('ia', { ok: false, label: 'Génération IA (RPC)', detail: '❌ ' + (err.message || String(err)) });
+        st.textContent = '';
+      }
+    });
+
+    // ---- Étape 4 : sauvegarde de la fiche ----
+    document.getElementById('btnSave')?.addEventListener('click', async () => {
+      if (!derniereFiche) return;
+      try {
+        await saveFiche({ ...derniereFiche, matiere: (document.getElementById('matiere') as HTMLSelectElement).value });
+        alert('✅ Fiche sauvegardée ! Visible dans Révisions.');
+      } catch (err: any) {
+        alert('❌ Sauvegarde : ' + (err.message || String(err)));
+      }
+    });
+
+    // ---- Étape 2b : auto-test Supabase REST au chargement pour info ----
+    (async () => {
+      const BASE = import.meta.env.PUBLIC_SUPABASE_URL;
+      const KEY = import.meta.env.PUBLIC_SUPABASE_KEY;
+      try {
+        const r = await fetch(`${BASE}/rest/v1/`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
+        render('sb', { ok: r.ok, label: 'Supabase REST joignable', detail: r.ok ? 'API répond.' : `code ${r.status}` });
+      } catch (e: any) {
+        render('sb', { ok: false, label: 'Supabase REST joignable', detail: e.message });
+      }
+    })();
+  </script>
+</Layout>
