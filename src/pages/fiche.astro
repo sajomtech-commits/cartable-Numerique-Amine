@@ -1,9 +1,11 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Barre from '../components/Barre.astro';
 const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Espagnol', 'Histoire-Géo', 'Science Numérique', 'Science Éco', 'Sport'];
 ---
 <Layout title="Fiche IA — Cartable Amine">
   <main class="max-w-xl mx-auto px-5 py-8">
+    <Barre retour={`${import.meta.env.BASE_URL}/revisions`} libelle="Mes fiches" />
     <h1 class="text-2xl font-extrabold mb-1">📷 Nouvelle fiche</h1>
     <p class="text-slate-400 text-sm mb-6">Photo du cours, PDF ou scan → lecture IA → fiche de révision + quiz</p>
 

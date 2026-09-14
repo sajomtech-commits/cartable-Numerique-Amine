@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import Barre from '../../components/Barre.astro';
 export function getStaticPaths() {
   const slugs = ['sport','math','francais','science-num','histoire-geo','espagnol','physique-chimie','svt','anglais','science-eco'];
   return slugs.map(s => ({ params: { slug: s } }));
@@ -75,6 +76,7 @@ const chapTotal = prog.reduce((acc, p) => acc + p.chapitres.length, 0);
 ---
 <Layout title={nom + ' — Amine'}>
   <main class="max-w-2xl mx-auto px-5 py-8">
+    <Barre />
     <a href={import.meta.env.BASE_URL} class="text-xs text-brand hover:underline mb-4 inline-block">← Accueil</a>
     <h1 class="text-3xl font-extrabold mb-2">{emoji} {nom}</h1>
     <p class="text-slate-400 mb-6">Programme de seconde, fiches et résumés IA pour cette matière.</p>

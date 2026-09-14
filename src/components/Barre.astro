@@ -1,0 +1,27 @@
+---
+// Barre de navigation commune : retour à l'accueil + retour à la page précédente.
+interface Props {
+  retour?: string;      // destination de secours si l'historique du navigateur est vide
+  libelle?: string;     // texte du bouton retour
+  pleine?: boolean;     // true = sans marges négatives (page centrée type connexion)
+}
+const base = import.meta.env.BASE_URL;
+const { retour = base, libelle = 'Retour', pleine = false } = Astro.props;
+---
+<nav class={`${pleine ? '' : '-mx-5 px-5'} sticky top-0 z-30 py-3 mb-5 bg-slate-950/85 backdrop-blur border-b border-slate-800 flex items-center gap-2`}>
+  <a href={base} class="px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-slate-700 text-sm font-semibold hover:bg-slate-800 active:scale-95 transition">🏠 Accueil</a>
+  <a id="navRetour" href={retour} class="px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-slate-700 text-sm font-semibold hover:bg-slate-800 active:scale-95 transition">⬅️ {libelle}</a>
+</nav>
+<script is:inline>
+  (function () {
+    var b = document.getElementById('navRetour');
+    if (!b) return;
+    b.addEventListener('click', function (ev) {
+      // revient à la page précédente du site si elle existe, sinon suit le lien de secours
+      if (document.referrer && document.referrer.indexOf(window.location.origin) === 0 && window.history.length > 1) {
+        ev.preventDefault();
+        window.history.back();
+      }
+    });
+  })();
+</script>

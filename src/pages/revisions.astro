@@ -1,9 +1,11 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Barre from '../components/Barre.astro';
 const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Espagnol', 'Histoire-Géo', 'Science Numérique', 'Science Éco', 'Sport'];
 ---
 <Layout title="Révisions — Cartable Amine">
   <main class="max-w-2xl mx-auto px-5 py-8">
+    <Barre retour={`${import.meta.env.BASE_URL}/fiche`} libelle="Nouvelle fiche" />
     <h1 class="text-2xl font-extrabold mb-2">📚 Fiches de révision</h1>
     <p class="text-slate-400 text-sm mb-4">Toutes tes fiches générées — relis-les avant chaque contrôle.</p>
     <select id="filtre" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-6">
