@@ -1,11 +1,12 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Barre from '../components/Barre.astro';
+import { lien } from '../lib/url';
 const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Espagnol', 'Histoire-Géo', 'Science Numérique', 'Science Éco', 'Sport'];
 ---
 <Layout title="Révisions — Cartable Amine">
   <main class="max-w-2xl md:max-w-6xl mx-auto px-5 md:px-8 py-8">
-    <Barre retour={`${import.meta.env.BASE_URL}/fiche`} libelle="Nouvelle fiche" />
+    <Barre retour={lien('/fiche')} libelle="Nouvelle fiche" />
 
     <div class="md:flex md:items-end md:justify-between md:gap-6">
       <div>
@@ -25,15 +26,16 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
     <p id="compte" class="text-xs text-slate-500 mt-4 mb-4"></p>
     <div id="liste" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-start"></div>
-    <p id="vide" class="text-slate-500 text-sm hidden">Aucune fiche encore — <a href={`${import.meta.env.BASE_URL}/fiche`} class="text-brand underline">génère ta première fiche</a>.</p>
+    <p id="vide" class="text-slate-500 text-sm hidden">Aucune fiche encore — <a href={`${lien('/fiche')}`} class="text-brand underline">génère ta première fiche</a>.</p>
   </main>
 
   <script>
     // Protection : redirection si non connecté
     import { isLoggedIn } from '../lib/auth';
-    if (!isLoggedIn()) window.location.href = `${import.meta.env.BASE_URL}/login`;
+    if (!isLoggedIn()) window.location.href = `${lien('/login')}`;
     import { getFiches, deleteFiche, type Fiche } from '../lib/fiches';
     import { resumeHTML, esc } from '../lib/rendu';
+    import { lien } from '../lib/url';
     const liste = document.getElementById('liste')!;
     const filtreMat = document.getElementById('filtre') as HTMLSelectElement;
     const filtreChap = document.getElementById('filtreChap') as HTMLSelectElement;

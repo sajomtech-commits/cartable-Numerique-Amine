@@ -31,7 +31,8 @@ import Barre from '../components/Barre.astro';
   <script>
     const BASE = import.meta.env.PUBLIC_SUPABASE_URL;
     const KEY = import.meta.env.PUBLIC_SUPABASE_KEY;
-    const REDIR = `${import.meta.env.BASE_URL}/`.replace(/\/$/, '');
+    // racine du site : '/' sur amine.sagetech.vip, '/cartable-Numerique-Amaine' sur GitHub Pages
+    const REDIR = racine;
 
     document.getElementById('form')?.addEventListener('submit', async (e) => {
       e.preventDefault();

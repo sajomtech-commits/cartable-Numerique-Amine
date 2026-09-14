@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Barre from '../../components/Barre.astro';
+import { lien } from '../../lib/url';
 export function getStaticPaths() {
   const slugs = ['sport','math','francais','science-num','histoire-geo','espagnol','physique-chimie','svt','anglais','science-eco'];
   return slugs.map(s => ({ params: { slug: s } }));
@@ -73,7 +74,7 @@ const programme: Record<string, { titre: string; chapitres: string[] }[]> = {
 
 const prog = programme[slug] || [];
 const chapTotal = prog.reduce((acc, p) => acc + p.chapitres.length, 0);
-const lienFiche = (chapitre: string) => `${import.meta.env.BASE_URL}/fiche?matiere=${encodeURIComponent(nom)}&chapitre=${encodeURIComponent(chapitre)}`;
+const lienFiche = (chapitre: string) => `${lien('/fiche')}?matiere=${encodeURIComponent(nom)}&chapitre=${encodeURIComponent(chapitre)}`;
 ---
 <Layout title={nom + ' — Amine'}>
   <main class="max-w-2xl md:max-w-6xl mx-auto px-5 md:px-8 py-8">
@@ -81,7 +82,7 @@ const lienFiche = (chapitre: string) => `${import.meta.env.BASE_URL}/fiche?matie
     <h1 class="text-3xl md:text-4xl font-extrabold mb-2">{emoji} {nom}</h1>
     <p class="text-slate-400 mb-6">Programme de seconde, fiches et résumés IA pour cette matière.</p>
 
-    <a href={`${import.meta.env.BASE_URL}/fiche?matiere=${encodeURIComponent(nom)}`} class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (photo ou PDF)</a>
+    <a href={`${lien('/fiche')}?matiere=${encodeURIComponent(nom)}`} class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (photo ou PDF)</a>
 
     <div class="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
       <section class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl mb-4 lg:mb-0">
@@ -121,7 +122,7 @@ const lienFiche = (chapitre: string) => `${import.meta.env.BASE_URL}/fiche?matie
           <div id="fiches-list" class="space-y-3">
             <p class="text-slate-400 text-sm">Chargement…</p>
           </div>
-          <a href={`${import.meta.env.BASE_URL}/revisions`} class="inline-block mt-3 text-xs text-brand hover:underline">→ Toutes mes fiches</a>
+          <a href={lien('/revisions')} class="inline-block mt-3 text-xs text-brand hover:underline">→ Toutes mes fiches</a>
         </section>
       </div>
     </div>
@@ -133,6 +134,7 @@ const lienFiche = (chapitre: string) => `${import.meta.env.BASE_URL}/fiche?matie
   import { getChapitres, creerChapitre, supprimerChapitre } from '../../lib/chapitres';
   import { isLoggedIn } from '../../lib/auth';
   import { esc } from '../../lib/rendu';
+  import { lien } from '../../lib/url';
 
   const section = document.getElementById('fiches-matiere')!;
   const matiere = section.getAttribute('data-matiere')!;
@@ -140,7 +142,7 @@ const lienFiche = (chapitre: string) => `${import.meta.env.BASE_URL}/fiche?matie
   const chapMsg = document.getElementById('chapMsg')!;
   const chapList = document.getElementById('chapList')!;
   const chapNom = document.getElementById('chapNom') as HTMLInputElement;
-  const NON_CONNECTE = '🔒 <a class="text-brand hover:underline" href="' + import.meta.env.BASE_URL + '/login">Connecte-toi</a>';
+  const NON_CONNECTE = '🔒 <a class="text-brand hover:underline" href="' + lien('/login') + '"">Connecte-toi</a>';
 
   async function chargerChapitres() {
     const chaps = await getChapitres(matiere);
@@ -151,7 +153,7 @@ const lienFiche = (chapitre: string) => `${import.meta.env.BASE_URL}/fiche?matie
     }
     chapList.innerHTML = perso.map((c) =>
       '<li class="flex items-center justify-between gap-2 bg-slate-950 rounded-xl px-3 py-2">' +
-        '<a class="hover:underline" href="' + import.meta.env.BASE_URL + '/fiche?matiere=' + encodeURIComponent(matiere) + '&chapitre=' + encodeURIComponent(c.titre) + '">📚 ' + esc(c.titre) + '</a>' +
+        '<a class="hover:underline" href="' + lien('/fiche') + '?matiere=' + encodeURIComponent(matiere) + '&chapitre=' + encodeURIComponent(c.titre) + '">📚 ' + esc(c.titre) + '</a>' +
         '<button data-chap="' + c.id + '" class="text-xs text-rose-400 hover:text-rose-300 shrink-0">🗑</button>' +
       '</li>').join('');
     chapList.querySelectorAll('[data-chap]').forEach((b) => b.addEventListener('click', async () => {
