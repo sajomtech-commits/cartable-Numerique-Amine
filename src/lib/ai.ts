@@ -49,6 +49,13 @@ export async function genererFiche(texte: string, matiere: string): Promise<Fich
   };
 }
 
+/** OCR d'une seule page (image base64) — utilisé par la prise de photo, page par page. */
+export async function ocrImage(image: string): Promise<string> {
+  const j = await post('/ocr', { images: [image] }, 180000);
+  if (j.error) throw new Error(j.error);
+  return (j.texte || '').trim();
+}
+
 /** OCR : lit une ou plusieurs pages (images base64) et renvoie le texte du cours. */
 export async function ocrImages(images: string[]): Promise<string> {
   const j = await post('/ocr', { images }, 300000);

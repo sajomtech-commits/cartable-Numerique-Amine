@@ -4,23 +4,40 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 ---
 <Layout title="Fiche IA — Cartable Amine">
   <main class="max-w-xl mx-auto px-5 py-8">
-    <h1 class="text-2xl font-extrabold mb-1">📄 Nouvelle fiche</h1>
-    <p class="text-slate-400 text-sm mb-6">PDF de cours (ou scanné) → lecture OCR/IA → fiche de révision + quiz</p>
+    <h1 class="text-2xl font-extrabold mb-1">📷 Nouvelle fiche</h1>
+    <p class="text-slate-400 text-sm mb-6">Photo du cours, PDF ou scan → lecture IA → fiche de révision + quiz</p>
 
-    <label class="block bg-brand/10 border-2 border-brand/30 border-dashed rounded-2xl p-10 text-center cursor-pointer hover:bg-brand/20 transition mb-4">
-      <span class="text-4xl">📄</span>
-      <span class="block mt-2 font-semibold">Choisir un PDF de cours</span>
-      <input id="file" type="file" accept=".pdf" class="hidden" />
-    </label>
-    <p id="pdfInfo" class="text-xs text-slate-500 mb-4"></p>
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <label class="block bg-brand/10 border-2 border-brand/30 border-dashed rounded-2xl p-6 text-center cursor-pointer hover:bg-brand/20 transition">
+        <span class="text-4xl">📷</span>
+        <span class="block mt-2 font-semibold text-sm">Prendre une photo</span>
+        <span class="block text-xs text-slate-400 mt-1">Le plus simple</span>
+        <input id="photo" type="file" accept="image/*" capture="environment" multiple class="hidden" />
+      </label>
+
+      <label class="block bg-slate-900 border-2 border-slate-700 border-dashed rounded-2xl p-6 text-center cursor-pointer hover:bg-slate-800 transition">
+        <span class="text-4xl">📄</span>
+        <span class="block mt-2 font-semibold text-sm">Choisir un PDF</span>
+        <span class="block text-xs text-slate-400 mt-1">Cours numérique ou scan</span>
+        <input id="file" type="file" accept=".pdf,application/pdf" class="hidden" />
+      </label>
+    </div>
+
+    <div id="apercu" class="hidden mb-3"></div>
+    <p id="pdfInfo" class="text-xs text-slate-400 mb-4"></p>
 
     <label class="block mb-1 text-sm">Matière</label>
-    <select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-4">
+    <select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-3">
       {matieres.map((m) => <option>{m}</option>)}
     </select>
 
-    <button id="go" class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-50">✨ Générer la fiche</button>
-    <div id="status" class="mt-4 text-sm text-slate-300 min-h-[2rem]"></div>
+    <label class="flex items-center gap-2 text-xs text-slate-400 mb-4 cursor-pointer">
+      <input id="auto" type="checkbox" checked class="accent-indigo-500 w-4 h-4" />
+      Enchaîner automatiquement l'IA après la lecture (résumé sans rien toucher)
+    </label>
+
+    <button id="go" disabled class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-40">✨ Générer la fiche</button>
+    <div id="status" class="mt-4 text-sm text-slate-300 min-h-[2rem] whitespace-pre-line"></div>
 
     <section id="fiche" class="hidden mt-6 bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800">
       <h2 id="fTitre" class="text-xl font-extrabold mb-4 leading-snug"></h2>
@@ -38,13 +55,15 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
     pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
     import { isLoggedIn } from '../lib/auth';
-    import { genererFiche, ocrImages } from '../lib/ai';
+    import { genererFiche, ocrImage } from '../lib/ai';
     import { saveFiche } from '../lib/fiches';
     import { resumeHTML, esc } from '../lib/rendu';
 
     if (!isLoggedIn()) window.location.href = `${import.meta.env.BASE_URL}/login`;
 
     const st = document.getElementById('status')!;
+    const info = document.getElementById('pdfInfo')!;
+    const goBtn = document.getElementById('go') as HTMLButtonElement;
     const params = new URLSearchParams(window.location.search);
     const mParam = params.get('matiere');
     if (mParam) {
@@ -55,11 +74,83 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
     let dernierTexte = '';
 
-    // Étape 1 : extraction PDF (texte direct, sinon OCR vision page par page)
+    // ---------- utilitaires ----------
+    const blobToB64 = (blob: Blob): Promise<string> =>
+      new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(((r.result as string).split(',')[1] || '')); r.onerror = rej; r.readAsDataURL(blob); });
+
+    /** Redimensionne + compresse une photo (max 1600 px, JPEG 80 %) pour un envoi rapide. */
+    async function compresser(file: File): Promise<string> {
+      const bitmap = await createImageBitmap(file);
+      const max = 1600;
+      const ratio = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bitmap.width * ratio);
+      canvas.height = Math.round(bitmap.height * ratio);
+      const ctx = canvas.getContext('2d')!;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close?.();
+      const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', 0.8));
+      return `data:image/jpeg;base64,${await blobToB64(blob)}`;
+    }
+
+    function apercu(images: string[]) {
+      const z = document.getElementById('apercu')!;
+      z.classList.remove('hidden');
+      z.innerHTML = `<p class="text-xs text-slate-500 mb-2">${images.length} page(s) photographiée(s)</p>
+        <div class="flex gap-2 overflow-x-auto pb-1">${images
+          .map((src, i) => `<figure class="relative shrink-0"><img src="${src}" class="h-32 rounded-lg ring-1 ring-slate-700" />
+            <span class="absolute bottom-1 left-1 bg-slate-950/80 text-[10px] px-1.5 rounded">p.${i + 1}</span></figure>`)
+          .join('')}</div>`;
+    }
+
+    function setOccupe(v: boolean) {
+      goBtn.disabled = v || dernierTexte.length < 50;
+      (document.getElementById('photo') as HTMLInputElement).disabled = v;
+      (document.getElementById('file') as HTMLInputElement).disabled = v;
+    }
+
+    // ---------- 1a. PHOTO : appareil photo / galerie → OCR IA ----------
+    document.getElementById('photo')?.addEventListener('change', async (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []).slice(0, 6);
+      if (!files.length) return;
+      setOccupe(true);
+      try {
+        const images: string[] = [];
+        for (let i = 0; i < files.length; i++) {
+          info.textContent = `⏳ Préparation des photos… (${i + 1}/${files.length})`;
+          images.push(await compresser(files[i]));
+        }
+        apercu(images);
+
+        let texte = '';
+        for (let i = 0; i < images.length; i++) {
+          info.textContent = `🔎 Lecture IA de la page ${i + 1}/${images.length}… (15–40 s par page)`;
+          const t = await ocrImage(images[i]);
+          texte += t + '\n\n';
+        }
+        texte = texte.trim();
+        dernierTexte = texte;
+
+        if (texte.length < 100) {
+          info.textContent = "❌ Photo illisible — reprends-la : feuille entière dans le cadre, bien à plat, sans ombre ni reflet.";
+          setOccupe(false);
+          return;
+        }
+        info.textContent = `✅ ${images.length} page(s) lue(s) — ${texte.length} caractères reconnus.`;
+        setOccupe(false);
+        if ((document.getElementById('auto') as HTMLInputElement).checked) await genererEtAfficher();
+      } catch (err: any) {
+        info.textContent = '❌ ' + (err.message || String(err));
+        setOccupe(false);
+      }
+    });
+
+    // ---------- 1b. PDF : texte direct, sinon OCR vision des pages ----------
     document.getElementById('file')?.addEventListener('change', async (e) => {
       const f = (e.target as HTMLInputElement).files?.[0];
-      const info = document.getElementById('pdfInfo')!;
       if (!f) return;
+      setOccupe(true);
       info.textContent = '⏳ Lecture du PDF…';
       try {
         const buf = await f.arrayBuffer();
@@ -71,16 +162,11 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
           full += tc.items.map((it: any) => ('str' in it ? it.str : '')).join(' ') + '\n';
         }
         full = full.trim();
-        // PDF scanné (peu de texte) → OCR vision des pages
+
         if (full.length < 200 && pdf.numPages <= 8) {
-          info.textContent = `⏳ PDF scanné détecté (${pdf.numPages} p.) — lecture OCR par l'IA (peut prendre 1–3 min)…`;
+          info.textContent = `⏳ PDF scanné détecté (${pdf.numPages} p.) — lecture OCR par l'IA (1–3 min)…`;
           const images: string[] = [];
           const scale = 2; // ~144 dpi
-          const blobToB64 = (blob: Blob): Promise<string> => new Promise((res, rej) => {
-            const r = new FileReader();
-            r.onload = () => res((r.result as string).split(',')[1] || '');
-            r.onerror = rej; r.readAsDataURL(blob);
-          });
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const vp = page.getViewport({ scale });
@@ -90,30 +176,33 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
             const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', 0.85));
             images.push(`data:image/jpeg;base64,${await blobToB64(blob)}`);
           }
-          const ocr = await ocrImages(images);
-          full = ocr.trim();
+          let texte = '';
+          for (let i = 0; i < images.length; i++) {
+            info.textContent = `🔎 Lecture IA de la page ${i + 1}/${images.length}…`;
+            texte += (await ocrImage(images[i])) + '\n\n';
+          }
+          full = texte.trim();
           info.textContent = `✅ OCR terminé (${pdf.numPages} pages lues).`;
         } else {
           info.textContent = `✅ ${pdf.numPages} page(s) — texte extrait (${full.length} caractères).` +
             (full.length < 200 ? ' ⚠️ PDF trop long ou trop scanné pour OCR auto (max 8 pages).' : '');
         }
         dernierTexte = full;
-        if (dernierTexte.length >= 100) {
-          document.getElementById('go')!.removeAttribute('disabled');
-        }
+        setOccupe(false);
+        if ((document.getElementById('auto') as HTMLInputElement).checked && pdf.numPages > 0 && full.length < 200) await genererEtAfficher();
       } catch (err: any) {
         info.textContent = '❌ ' + (err.message || String(err));
+        setOccupe(false);
       }
     });
 
-    // Étape 2 : génération fiche + sauvegarde auto
-    document.getElementById('go')?.addEventListener('click', async () => {
+    // ---------- 2. Génération de la fiche + sauvegarde ----------
+    async function genererEtAfficher() {
       const matiere = (document.getElementById('matiere') as HTMLSelectElement).value;
-      if (!dernierTexte || dernierTexte.length < 50) { st.textContent = "⚠️ Choisis d'abord un PDF lisible."; return; }
-      const go = document.getElementById('go') as HTMLButtonElement;
-      go.disabled = true;
+      if (!dernierTexte || dernierTexte.length < 50) { st.textContent = "⚠️ Choisis d'abord une photo ou un PDF lisible."; return; }
+      setOccupe(true);
       document.getElementById('fiche')?.classList.add('hidden');
-      st.textContent = '⏳ IA en cours (~10–40 s)…';
+      st.textContent = '⏳ L\'IA rédige la fiche… (~10–40 s)';
       try {
         const fiche = await genererFiche(dernierTexte, matiere);
         st.textContent = '✅ Fiche générée — sauvegarde…';
@@ -122,17 +211,21 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         document.getElementById('fiche')?.classList.remove('hidden');
         document.getElementById('fTitre')!.textContent = fiche.titre;
         document.getElementById('fResume')!.innerHTML = resumeHTML(fiche.resume);
-        document.getElementById('fPoints')!.innerHTML = fiche.pointsCles.map((p) => `<li class="leading-relaxed pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('');
+        document.getElementById('fPoints')!.innerHTML = fiche.pointsCles
+          .map((p) => `<li class="leading-relaxed pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('');
         document.getElementById('fQuiz')!.innerHTML = fiche.quiz.map((q) => `
           <details class="bg-slate-950 rounded-xl p-3">
             <summary class="text-sm font-medium cursor-pointer">${esc(q.q)}</summary>
             <p class="text-sm text-emerald-300 mt-2">${esc(q.r)}</p>
           </details>`).join('');
+        document.getElementById('fiche')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (err: any) {
         st.textContent = '❌ ' + (err.message || String(err));
       } finally {
-        go.disabled = false;
+        setOccupe(false);
       }
-    });
+    }
+
+    goBtn.addEventListener('click', genererEtAfficher);
   </script>
 </Layout>
