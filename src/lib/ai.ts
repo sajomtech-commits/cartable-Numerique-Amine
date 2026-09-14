@@ -22,7 +22,14 @@ async function post(route: string, payload: unknown, timeoutMs = 180000) {
       signal: ctrl.signal,
     });
     const txt = await res.text();
-    if (!res.ok) throw new Error(`IA ${res.status} — ${txt.slice(0, 200)}`);
+    if (!res.ok) {
+      let msg = txt.slice(0, 200);
+      try { const j = JSON.parse(txt); if (j?.error) msg = String(j.error); } catch { /* corps non JSON */ }
+      if (res.status >= 500) {
+        throw new Error(`Le service IA a eu un souci passager (${res.status}). Le cours est déjà lu : reclique sur « ✨ Générer la fiche ». [${msg.slice(0, 120)}]`);
+      }
+      throw new Error(`IA ${res.status} — ${msg}`);
+    }
     try {
       return JSON.parse(txt);
     } catch {
