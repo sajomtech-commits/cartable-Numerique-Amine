@@ -18,7 +18,10 @@ const { retour = base, libelle = 'Retour', pleine = false } = Astro.props;
     if (!b) return;
     b.addEventListener('click', function (ev) {
       // revient à la page précédente du site si elle existe, sinon suit le lien de secours
-      if (document.referrer && document.referrer.indexOf(window.location.origin) === 0 && window.history.length > 1) {
+      var r = document.referrer || '';
+      var memeSite = r.indexOf(window.location.origin) === 0;
+      var venuDeLogin = r.indexOf('/login') !== -1;
+      if (memeSite && !venuDeLogin && window.history.length > 1) {
         ev.preventDefault();
         window.history.back();
       }

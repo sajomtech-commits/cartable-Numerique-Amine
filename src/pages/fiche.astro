@@ -4,52 +4,78 @@ import Barre from '../components/Barre.astro';
 const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Espagnol', 'Histoire-Géo', 'Science Numérique', 'Science Éco', 'Sport'];
 ---
 <Layout title="Fiche IA — Cartable Amine">
-  <main class="max-w-xl mx-auto px-5 py-8">
+  <main class="max-w-xl md:max-w-5xl mx-auto px-5 md:px-8 py-8">
     <Barre retour={`${import.meta.env.BASE_URL}/revisions`} libelle="Mes fiches" />
-    <h1 class="text-2xl font-extrabold mb-1">📷 Nouvelle fiche</h1>
+    <h1 class="text-2xl md:text-3xl font-extrabold mb-1">📷 Nouvelle fiche</h1>
     <p class="text-slate-400 text-sm mb-6">Photo du cours, PDF ou scan → lecture IA → fiche de révision + quiz</p>
 
-    <div class="grid grid-cols-2 gap-3 mb-4">
-      <label class="block bg-brand/10 border-2 border-brand/30 border-dashed rounded-2xl p-6 text-center cursor-pointer hover:bg-brand/20 transition">
-        <span class="text-4xl">📷</span>
-        <span class="block mt-2 font-semibold text-sm">Prendre une photo</span>
-        <span class="block text-xs text-slate-400 mt-1">Le plus simple</span>
-        <input id="photo" type="file" accept="image/*" capture="environment" multiple class="hidden" />
-      </label>
+    <div class="md:grid md:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] md:gap-8 md:items-start">
 
-      <label class="block bg-slate-900 border-2 border-slate-700 border-dashed rounded-2xl p-6 text-center cursor-pointer hover:bg-slate-800 transition">
-        <span class="text-4xl">📄</span>
-        <span class="block mt-2 font-semibold text-sm">Choisir un PDF</span>
-        <span class="block text-xs text-slate-400 mt-1">Cours numérique ou scan</span>
-        <input id="file" type="file" accept=".pdf,application/pdf" class="hidden" />
-      </label>
+      <!-- ---------- colonne gauche : ce qu'on donne à lire à l'IA ---------- -->
+      <div class="md:sticky md:top-4">
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <label class="block bg-brand/10 border-2 border-brand/30 border-dashed rounded-2xl p-6 text-center cursor-pointer hover:bg-brand/20 transition">
+            <span class="text-4xl">📷</span>
+            <span class="block mt-2 font-semibold text-sm">Prendre une photo</span>
+            <span class="block text-xs text-slate-400 mt-1">Le plus simple</span>
+            <input id="photo" type="file" accept="image/*" capture="environment" multiple class="hidden" />
+          </label>
+
+          <label class="block bg-slate-900 border-2 border-slate-700 border-dashed rounded-2xl p-6 text-center cursor-pointer hover:bg-slate-800 transition">
+            <span class="text-4xl">📄</span>
+            <span class="block mt-2 font-semibold text-sm">Choisir un PDF</span>
+            <span class="block text-xs text-slate-400 mt-1">Cours numérique ou scan</span>
+            <input id="file" type="file" accept=".pdf,application/pdf" class="hidden" />
+          </label>
+        </div>
+
+        <div id="apercu" class="hidden mb-3"></div>
+        <p id="pdfInfo" class="text-xs text-slate-400 mb-4"></p>
+
+        <label class="block mb-1 text-sm">Matière</label>
+        <select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-3">
+          {matieres.map((m) => <option>{m}</option>)}
+        </select>
+
+        <div class="mb-3">
+          <label class="block mb-1 text-sm">📚 Chapitre <span class="text-slate-500">(facultatif)</span></label>
+          <select id="chapSel" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-2">
+            <option value="">— Choisir un chapitre —</option>
+          </select>
+          <div class="flex gap-2">
+            <input id="chapitre" type="text" placeholder="…ou tape un nouveau chapitre" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+            <button id="creerChap" type="button" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold px-3 rounded-xl transition">➕ Créer</button>
+          </div>
+          <p id="chapInfo" class="text-xs text-slate-500 mt-1"></p>
+        </div>
+
+        <label class="flex items-center gap-2 text-xs text-slate-400 mb-4 cursor-pointer">
+          <input id="auto" type="checkbox" checked class="accent-indigo-500 w-4 h-4" />
+          Enchaîner automatiquement l'IA après la lecture (résumé sans rien toucher)
+        </label>
+
+        <button id="go" disabled class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-40">✨ Générer la fiche</button>
+        <div id="status" class="mt-4 text-sm text-slate-300 min-h-[2rem] whitespace-pre-line"></div>
+      </div>
+
+      <!-- ---------- colonne droite : la fiche ---------- -->
+      <div>
+        <div id="attente" class="hidden md:flex md:items-center md:justify-center text-slate-500 text-sm bg-slate-900/40 border-2 border-slate-800 border-dashed rounded-2xl p-10 text-center">
+          Ta fiche de révision apparaîtra ici.
+        </div>
+
+        <section id="fiche" class="hidden bg-slate-900 rounded-2xl p-6 md:p-8 ring-1 ring-slate-800">
+          <p id="fChapitre" class="text-xs text-brand font-semibold mb-1"></p>
+          <h2 id="fTitre" class="text-xl md:text-2xl font-extrabold mb-4 leading-snug"></h2>
+          <div id="fResume" class="mb-2"></div>
+          <h3 class="font-bold text-brand mt-6 mb-2 pb-1 border-b border-slate-800">Points clés</h3>
+          <ul id="fPoints" class="space-y-1.5 text-sm text-slate-200 mb-2 md:grid md:grid-cols-2 md:gap-x-6 md:space-y-0 md:gap-y-1.5"></ul>
+          <h3 class="font-bold text-brand mt-6 mb-1 pb-1 border-b border-slate-800">Quiz de contrôle</h3>
+          <div id="fQuiz" class="space-y-2 mb-4 md:grid md:grid-cols-2 md:gap-2 md:space-y-0 md:items-start"></div>
+          <a href={`${import.meta.env.BASE_URL}/revisions`} class="inline-block bg-brand text-white px-4 py-2 rounded-xl text-sm font-semibold">📚 Voir mes fiches</a>
+        </section>
+      </div>
     </div>
-
-    <div id="apercu" class="hidden mb-3"></div>
-    <p id="pdfInfo" class="text-xs text-slate-400 mb-4"></p>
-
-    <label class="block mb-1 text-sm">Matière</label>
-    <select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-3">
-      {matieres.map((m) => <option>{m}</option>)}
-    </select>
-
-    <label class="flex items-center gap-2 text-xs text-slate-400 mb-4 cursor-pointer">
-      <input id="auto" type="checkbox" checked class="accent-indigo-500 w-4 h-4" />
-      Enchaîner automatiquement l'IA après la lecture (résumé sans rien toucher)
-    </label>
-
-    <button id="go" disabled class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-40">✨ Générer la fiche</button>
-    <div id="status" class="mt-4 text-sm text-slate-300 min-h-[2rem] whitespace-pre-line"></div>
-
-    <section id="fiche" class="hidden mt-6 bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800">
-      <h2 id="fTitre" class="text-xl font-extrabold mb-4 leading-snug"></h2>
-      <div id="fResume" class="mb-2"></div>
-      <h3 class="font-bold text-brand mt-6 mb-2 pb-1 border-b border-slate-800">Points clés</h3>
-      <ul id="fPoints" class="space-y-1.5 text-sm text-slate-200 mb-2"></ul>
-      <h3 class="font-bold text-brand mt-6 mb-1 pb-1 border-b border-slate-800">Quiz de contrôle</h3>
-      <div id="fQuiz" class="space-y-2 mb-4"></div>
-      <a href={`${import.meta.env.BASE_URL}/revisions`} class="inline-block bg-brand text-white px-4 py-2 rounded-xl text-sm font-semibold">📚 Voir mes fiches</a>
-    </section>
   </main>
 
   <script>
@@ -59,6 +85,8 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     import { isLoggedIn } from '../lib/auth';
     import { genererFiche, ocrImage } from '../lib/ai';
     import { saveFiche } from '../lib/fiches';
+    import { getChapitres, creerChapitre, trouverOuCreer } from '../lib/chapitres';
+    import type { Chapitre } from '../lib/chapitres';
     import { resumeHTML, esc } from '../lib/rendu';
 
     if (!isLoggedIn()) window.location.href = `${import.meta.env.BASE_URL}/login`;
@@ -66,15 +94,65 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     const st = document.getElementById('status')!;
     const info = document.getElementById('pdfInfo')!;
     const goBtn = document.getElementById('go') as HTMLButtonElement;
+    const matSel = document.getElementById('matiere') as HTMLSelectElement;
+    const chapSel = document.getElementById('chapSel') as HTMLSelectElement;
+    const chapInput = document.getElementById('chapitre') as HTMLInputElement;
+    const chapInfo = document.getElementById('chapInfo')!;
     const params = new URLSearchParams(window.location.search);
     const mParam = params.get('matiere');
     if (mParam) {
-      const sel = document.getElementById('matiere') as HTMLSelectElement;
-      const found = Array.from(sel.options).find((o) => o.value === mParam || o.text === mParam);
-      if (found) sel.value = found.value;
+      const found = Array.from(matSel.options).find((o) => o.value === mParam || o.text === mParam);
+      if (found) matSel.value = found.value;
     }
 
     let dernierTexte = '';
+
+    // ---------- chapitres de la matière ----------
+    let chapitres: Chapitre[] = [];
+
+    function remplirChapitres() {
+      const prog = chapitres.filter((c) => !c.perso);
+      const perso = chapitres.filter((c) => c.perso);
+      const opt = (c: Chapitre) => `<option value="${esc(c.id)}">${c.numero ? 'n° ' + c.numero + ' · ' : ''}${esc(c.titre)}</option>`;
+      chapSel.innerHTML =
+        '<option value="">— Choisir un chapitre —</option>' +
+        (prog.length ? `<optgroup label="Programme">${prog.map(opt).join('')}</optgroup>` : '') +
+        (perso.length ? `<optgroup label="⭐ Mes chapitres">${perso.map(opt).join('')}</optgroup>` : '');
+      const n = chapitres.length;
+      chapInfo.textContent = n
+        ? `${n} chapitre${n > 1 ? 's' : ''} proposé${n > 1 ? 's' : ''} (dont ${perso.length} à toi) — choisis-en un, ou tape un nouveau nom pour le créer.`
+        : 'Aucun chapitre encore pour cette matière — tape un nom, il sera créé.';
+    }
+
+    async function chargerChapitres() {
+      const matiere = matSel.value;
+      chapInfo.textContent = '⏳ Chargement des chapitres…';
+      chapitres = await getChapitres(matiere);
+      remplirChapitres();
+      const cParam = params.get('chapitre');
+      if (cParam) { chapInput.value = cParam; const c = chapitres.find((x) => x.titre.toLowerCase() === cParam.toLowerCase()); if (c) chapSel.value = c.id; }
+    }
+
+    chapSel.addEventListener('change', () => {
+      const c = chapitres.find((x) => x.id === chapSel.value);
+      chapInput.value = c ? c.titre : '';
+    });
+
+    document.getElementById('creerChap')?.addEventListener('click', async () => {
+      const nom = chapInput.value.trim();
+      if (!nom) { chapInfo.textContent = '⚠️ Tape d\'abord le nom du chapitre.'; return; }
+      chapInfo.textContent = '⏳ Création…';
+      const c = await creerChapitre(matSel.value, nom);
+      if (!c) { chapInfo.textContent = '❌ Création impossible (connexion ?). Réessaie.'; return; }
+      chapitres = await getChapitres(matSel.value);
+      remplirChapitres();
+      chapSel.value = c.id;
+      chapInput.value = c.titre;
+      chapInfo.textContent = `✅ Chapitre « ${c.titre} » enregistré dans ${matSel.value}.`;
+    });
+
+    matSel.addEventListener('change', chargerChapitres);
+    chargerChapitres();
 
     // ---------- utilitaires ----------
     const blobToB64 = (blob: Blob): Promise<string> =>
@@ -213,17 +291,39 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
     // ---------- 2. Génération de la fiche + sauvegarde ----------
     async function genererEtAfficher() {
-      const matiere = (document.getElementById('matiere') as HTMLSelectElement).value;
+      const matiere = matSel.value;
       if (!dernierTexte || dernierTexte.length < 50) { st.textContent = "⚠️ Choisis d'abord une photo ou un PDF lisible."; return; }
       setOccupe(true);
-      document.getElementById('fiche')?.classList.add('hidden');
+      const bloc = document.getElementById('fiche')!;
+      bloc.classList.add('hidden');
+      document.getElementById('attente')?.classList.add('hidden');
       st.textContent = '⏳ L\'IA rédige la fiche… (~10–40 s)';
       try {
         const fiche = await genererFiche(dernierTexte, matiere);
+
+        // chapitre : celui choisi dans la liste, ou un nouveau créé maintenant
+        let chapId: string | null = null;
+        let chapTitre = '';
+        const nomChap = chapInput.value.trim();
+        if (nomChap) {
+          st.textContent = `✅ Fiche générée — chapitre « ${nomChap} »…`;
+          const c = await trouverOuCreer(matiere, nomChap);
+          if (c) { chapId = c.id; chapTitre = c.titre; }
+        }
+
         st.textContent = '✅ Fiche générée — sauvegarde…';
-        try { await saveFiche({ ...fiche, matiere }); st.textContent = '✅ Fiche générée et sauvegardée !'; }
-        catch (e: any) { st.textContent = '⚠️ Fiche générée mais sauvegarde échouée : ' + e.message; }
-        document.getElementById('fiche')?.classList.remove('hidden');
+        try {
+          await saveFiche({ ...fiche, matiere, chapitreId: chapId });
+          st.textContent = '✅ Fiche générée et sauvegardée !' + (chapTitre ? ` (chapitre « ${chapTitre} »)` : '');
+          chapitres = await getChapitres(matiere);
+          remplirChapitres();
+        } catch (e: any) {
+          st.textContent = '⚠️ Fiche générée mais sauvegarde échouée : ' + e.message;
+        }
+
+        bloc.classList.remove('hidden');
+        const chapEl = document.getElementById('fChapitre')!;
+        chapEl.textContent = chapTitre ? `📚 ${chapTitre}` : '';
         document.getElementById('fTitre')!.textContent = fiche.titre;
         document.getElementById('fResume')!.innerHTML = resumeHTML(fiche.resume);
         document.getElementById('fPoints')!.innerHTML = fiche.pointsCles
@@ -233,9 +333,11 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
             <summary class="text-sm font-medium cursor-pointer">${esc(q.q)}</summary>
             <p class="text-sm text-emerald-300 mt-2">${esc(q.r)}</p>
           </details>`).join('');
-        document.getElementById('fiche')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        bloc.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (err: any) {
         st.textContent = '❌ ' + (err.message || String(err));
+        if (!bloc.classList.contains('hidden')) bloc.classList.remove('hidden');
+        else document.getElementById('attente')?.classList.remove('hidden');
       } finally {
         setOccupe(false);
       }

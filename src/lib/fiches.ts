@@ -5,6 +5,8 @@ export interface Fiche {
   id: string;
   matiere: string;
   titre: string;
+  chapitreId?: string | null;
+  chapitre?: string;
   resume: string;
   pointsCles: string[];
   quiz: { q: string; r: string }[];
@@ -27,6 +29,7 @@ interface QuizRow { Q?: string; q?: string; R?: string; r?: string }
 interface Row {
   id: string; matiere?: string; titre: string; resume?: string;
   points_cles?: string[]; quiz?: QuizRow[]; created_at?: string;
+  chapitre_id?: string | null; chapitres?: { titre?: string } | null;
 }
 
 function mapRow(r: Row): Fiche {
@@ -34,6 +37,8 @@ function mapRow(r: Row): Fiche {
     id: r.id,
     matiere: r.matiere || '',
     titre: r.titre,
+    chapitreId: r.chapitre_id ?? null,
+    chapitre: r.chapitres?.titre || '',
     resume: r.resume || '',
     pointsCles: r.points_cles || [],
     quiz: (r.quiz || []).map((q) => ({ q: q.Q ?? q.q ?? '', r: q.R ?? q.r ?? '' })),
@@ -45,7 +50,7 @@ export async function getFiches(): Promise<Fiche[]> {
   const token = await validToken();
   if (!token) return [];
   try {
-    const res = await fetch(`${TABLE}?select=*&order=created_at.desc&limit=200`, { headers: headers(token) });
+    const res = await fetch(`${TABLE}?select=*,chapitres(titre)&order=created_at.desc&limit=200`, { headers: headers(token) });
     if (!res.ok) return [];
     return (await res.json()).map(mapRow);
   } catch { return []; }
@@ -61,6 +66,7 @@ export async function saveFiche(f: Omit<Fiche, 'id' | 'date'>): Promise<Fiche> {
     points_cles: f.pointsCles,
     quiz: f.quiz.map((q) => ({ Q: q.q, R: q.r })),
     source_type: 'texte',
+    chapitre_id: f.chapitreId || null,
     // user_id est posé par la base via default auth.uid() quand la session est authentifiée
   };
   const res = await fetch(TABLE, { method: 'POST', headers: headers(token), body: JSON.stringify(body) });

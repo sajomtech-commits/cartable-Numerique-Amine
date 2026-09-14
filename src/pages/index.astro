@@ -14,13 +14,13 @@ const matieres = [
 ];
 ---
 <Layout title="Cartable Numérique — Amine">
-  <main class="max-w-2xl mx-auto px-5 py-8">
+  <main class="max-w-2xl md:max-w-5xl mx-auto px-5 md:px-8 py-8">
     <header class="mb-8">
-      <h1 class="text-4xl font-extrabold tracking-tight mb-2">Cartable Numérique</h1>
+      <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-2">Cartable Numérique</h1>
       <p class="text-slate-400 text-base">Amine — 2nde · Cours · Fiches · Résumés IA</p>
     </header>
 
-    <section class="grid grid-cols-2 gap-3 mb-8">
+    <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-8">
       {matieres.map(m => (
         <a href={`${import.meta.env.BASE_URL}/matieres/${m.slug}`} class={`${m.color} rounded-2xl p-5 shadow-lg hover:-translate-y-0.5 transition-all text-white font-semibold text-sm flex flex-col gap-2 ring-1 ring-white/10`}>
           <span class="text-2xl leading-none">{m.icon}</span>

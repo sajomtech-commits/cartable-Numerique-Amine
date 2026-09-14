@@ -11,7 +11,7 @@ const emojis: Record<string,string> = { sport:'⚽', math:'📐', francais:'📚
 const nom = noms[slug] || slug;
 const emoji = emojis[slug] || '📖';
 
-// Programme officiel de seconde (2025-2026) par matière
+// Programme officiel de seconde (2025-2026) par matière — thèmes et chapitres
 const programme: Record<string, { titre: string; chapitres: string[] }[]> = {
   math: [
     { titre: 'Nombres et calculs', chapitres: ['Nombres et calculs numériques', 'Calcul littéral', 'Vecteurs et translation', 'Repères, distances'] },
@@ -73,50 +73,110 @@ const programme: Record<string, { titre: string; chapitres: string[] }[]> = {
 
 const prog = programme[slug] || [];
 const chapTotal = prog.reduce((acc, p) => acc + p.chapitres.length, 0);
+const lienFiche = (chapitre: string) => `${import.meta.env.BASE_URL}/fiche?matiere=${encodeURIComponent(nom)}&chapitre=${encodeURIComponent(chapitre)}`;
 ---
 <Layout title={nom + ' — Amine'}>
-  <main class="max-w-2xl mx-auto px-5 py-8">
+  <main class="max-w-2xl md:max-w-6xl mx-auto px-5 md:px-8 py-8">
     <Barre />
-    <a href={import.meta.env.BASE_URL} class="text-xs text-brand hover:underline mb-4 inline-block">← Accueil</a>
-    <h1 class="text-3xl font-extrabold mb-2">{emoji} {nom}</h1>
+    <h1 class="text-3xl md:text-4xl font-extrabold mb-2">{emoji} {nom}</h1>
     <p class="text-slate-400 mb-6">Programme de seconde, fiches et résumés IA pour cette matière.</p>
 
     <a href={`${import.meta.env.BASE_URL}/fiche?matiere=${encodeURIComponent(nom)}`} class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (photo ou PDF)</a>
 
-    <section class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl mb-4">
-      <h3 class="font-bold text-lg mb-3">📋 Programme de seconde <span class="text-xs font-normal text-slate-500">({chapTotal} chapitres)</span></h3>
-      {prog.length === 0 && <p class="text-slate-400 text-sm">Programme à venir.</p>}
-      <div class="space-y-3">
-        {prog.map((theme) => (
-          <div>
-            <p class="font-semibold text-sm text-brand mb-1">{theme.titre}</p>
-            <ul class="list-disc list-inside text-sm text-slate-300 space-y-0.5">
-              {theme.chapitres.map((c) => <li>{c}</li>)}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </section>
+    <div class="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
+      <section class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl mb-4 lg:mb-0">
+        <h3 class="font-bold text-lg mb-1">📋 Programme de seconde <span class="text-xs font-normal text-slate-500">({chapTotal} chapitres)</span></h3>
+        <p class="text-xs text-slate-500 mb-3">Clique sur un chapitre pour générer sa fiche de révision.</p>
+        {prog.length === 0 && <p class="text-slate-400 text-sm">Programme à venir.</p>}
+        <div class="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 md:items-start">
+          {prog.map((theme) => (
+            <div>
+              <p class="font-semibold text-sm text-brand mb-1">{theme.titre}</p>
+              <ul class="space-y-1 text-sm text-slate-300">
+                {theme.chapitres.map((c) => (
+                  <li>
+                    <a href={lienFiche(c)} class="hover:text-white hover:underline">{c}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
 
-    <section id="fiches-matiere" class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl" data-matiere={nom}>
-      <h3 class="font-bold text-lg mb-3">🤖 Mes fiches IA — {nom}</h3>
-      <div id="fiches-list" class="space-y-3">
-        <p class="text-slate-400 text-sm">Chargement…</p>
+      <div class="space-y-4">
+        <section id="mes-chapitres" class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl" data-matiere={nom}>
+          <h3 class="font-bold text-lg mb-1">⭐ Mes chapitres — {nom}</h3>
+          <p class="text-xs text-slate-500 mb-3">Les chapitres que tu crées ici (leçon en cours, contrôle du prof…) sont proposés ensuite quand tu génères une fiche IA.</p>
+          <div class="flex gap-2 mb-3">
+            <input id="chapNom" type="text" placeholder="Nom du chapitre (ex. Chapitre 4 — Les vecteurs)" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+            <button id="chapAdd" type="button" class="shrink-0 bg-brand hover:bg-indigo-600 text-white text-sm font-bold px-3 rounded-xl transition">➕ Créer</button>
+          </div>
+          <p id="chapMsg" class="text-xs text-slate-500 mb-2"></p>
+          <ul id="chapList" class="space-y-1 text-sm text-slate-200"></ul>
+        </section>
+
+        <section id="fiches-matiere" class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl" data-matiere={nom}>
+          <h3 class="font-bold text-lg mb-3">🤖 Mes fiches IA — {nom}</h3>
+          <div id="fiches-list" class="space-y-3">
+            <p class="text-slate-400 text-sm">Chargement…</p>
+          </div>
+          <a href={`${import.meta.env.BASE_URL}/revisions`} class="inline-block mt-3 text-xs text-brand hover:underline">→ Toutes mes fiches</a>
+        </section>
       </div>
-      <a href={`${import.meta.env.BASE_URL}/revisions`} class="inline-block mt-3 text-xs text-brand hover:underline">→ Toutes mes fiches</a>
-    </section>
+    </div>
   </main>
 </Layout>
 
 <script>
   import { getFiches, deleteFiche } from '../../lib/fiches';
+  import { getChapitres, creerChapitre, supprimerChapitre } from '../../lib/chapitres';
   import { isLoggedIn } from '../../lib/auth';
+  import { esc } from '../../lib/rendu';
+
   const section = document.getElementById('fiches-matiere')!;
   const matiere = section.getAttribute('data-matiere')!;
   const list = document.getElementById('fiches-list')!;
+  const chapMsg = document.getElementById('chapMsg')!;
+  const chapList = document.getElementById('chapList')!;
+  const chapNom = document.getElementById('chapNom') as HTMLInputElement;
+  const NON_CONNECTE = '🔒 <a class="text-brand hover:underline" href="' + import.meta.env.BASE_URL + '/login">Connecte-toi</a>';
+
+  async function chargerChapitres() {
+    const chaps = await getChapitres(matiere);
+    const perso = chaps.filter((c) => c.perso);
+    if (!perso.length) {
+      chapList.innerHTML = '<li class="text-slate-400 text-sm">Aucun chapitre personnel pour cette matière.</li>';
+      return;
+    }
+    chapList.innerHTML = perso.map((c) =>
+      '<li class="flex items-center justify-between gap-2 bg-slate-950 rounded-xl px-3 py-2">' +
+        '<a class="hover:underline" href="' + import.meta.env.BASE_URL + '/fiche?matiere=' + encodeURIComponent(matiere) + '&chapitre=' + encodeURIComponent(c.titre) + '">📚 ' + esc(c.titre) + '</a>' +
+        '<button data-chap="' + c.id + '" class="text-xs text-rose-400 hover:text-rose-300 shrink-0">🗑</button>' +
+      '</li>').join('');
+    chapList.querySelectorAll('[data-chap]').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('Supprimer ce chapitre ? Les fiches liées seront conservées (sans chapitre).')) return;
+      await supprimerChapitre((b as HTMLElement).dataset.chap!);
+      await chargerChapitres();
+    }));
+  }
+
+  document.getElementById('chapAdd')?.addEventListener('click', async () => {
+    const nom = chapNom.value.trim();
+    if (!nom) { chapMsg.textContent = '⚠️ Tape le nom du chapitre.'; return; }
+    chapMsg.textContent = '⏳ Création…';
+    const c = await creerChapitre(matiere, nom);
+    if (!c) { chapMsg.textContent = '❌ Création impossible. Réessaie.'; return; }
+    chapMsg.textContent = `✅ « ${c.titre} » ajouté — il sera proposé pour tes fiches IA.`;
+    chapNom.value = '';
+    await chargerChapitres();
+  });
+
   if (!isLoggedIn()) {
-    list.innerHTML = '<p class="text-slate-400 text-sm">🔒 <a class="text-brand hover:underline" href="' + import.meta.env.BASE_URL + '/login">Connecte-toi</a> pour voir tes fiches de cette matière.</p>';
+    list.innerHTML = '<p class="text-slate-400 text-sm">' + NON_CONNECTE + ' pour voir tes fiches de cette matière.</p>';
+    chapList.innerHTML = '<li class="text-slate-400 text-sm">' + NON_CONNECTE + ' pour créer tes chapitres.</li>';
   } else {
+    chargerChapitres();
     try {
       const fiches = (await getFiches()).filter((f) => f.matiere === matiere);
       if (fiches.length === 0) {
@@ -124,9 +184,9 @@ const chapTotal = prog.reduce((acc, p) => acc + p.chapitres.length, 0);
       } else {
         list.innerHTML = fiches.map((f) =>
           '<details class="bg-slate-800 rounded-xl p-4 text-sm">' +
-          '<summary class="font-semibold cursor-pointer">' + f.titre + ' <span class="text-xs text-slate-500 font-normal">· ' + new Date(f.date).toLocaleDateString('fr-FR') + '</span></summary>' +
-          '<p class="mt-2 text-slate-200 whitespace-pre-line">' + f.resume + '</p>' +
-          (f.pointsCles.length ? '<p class="mt-2 font-semibold text-brand">Points clés</p><ul class="list-disc list-inside text-slate-200 mt-1 space-y-0.5">' + f.pointsCles.map((p) => '<li>' + p + '</li>').join('') + '</ul>' : '') +
+          '<summary class="font-semibold cursor-pointer">' + esc(f.titre) + ' <span class="text-xs text-slate-500 font-normal">' + (f.chapitre ? '📚 ' + esc(f.chapitre) + ' · ' : '') + new Date(f.date).toLocaleDateString('fr-FR') + '</span></summary>' +
+          '<p class="mt-2 text-slate-200 whitespace-pre-line">' + esc(f.resume) + '</p>' +
+          (f.pointsCles.length ? '<p class="mt-2 font-semibold text-brand">Points clés</p><ul class="list-disc list-inside text-slate-200 mt-1 space-y-0.5">' + f.pointsCles.map((p) => '<li>' + esc(p) + '</li>').join('') + '</ul>' : '') +
           '<button data-del="' + f.id + '" class="mt-3 text-xs text-red-400 hover:text-red-300">🗑 Supprimer</button>' +
           '</details>').join('');
         list.querySelectorAll('[data-del]').forEach((btn) => {

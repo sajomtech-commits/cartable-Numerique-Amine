@@ -4,15 +4,27 @@ import Barre from '../components/Barre.astro';
 const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Espagnol', 'Histoire-Géo', 'Science Numérique', 'Science Éco', 'Sport'];
 ---
 <Layout title="Révisions — Cartable Amine">
-  <main class="max-w-2xl mx-auto px-5 py-8">
+  <main class="max-w-2xl md:max-w-6xl mx-auto px-5 md:px-8 py-8">
     <Barre retour={`${import.meta.env.BASE_URL}/fiche`} libelle="Nouvelle fiche" />
-    <h1 class="text-2xl font-extrabold mb-2">📚 Fiches de révision</h1>
-    <p class="text-slate-400 text-sm mb-4">Toutes tes fiches générées — relis-les avant chaque contrôle.</p>
-    <select id="filtre" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-6">
-      <option value="">Toutes matières</option>
-      {matieres.map((m) => <option>{m}</option>)}
-    </select>
-    <div id="liste" class="space-y-3"></div>
+
+    <div class="md:flex md:items-end md:justify-between md:gap-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-extrabold mb-2">📚 Fiches de révision</h1>
+        <p class="text-slate-400 text-sm">Toutes tes fiches générées — relis-les avant chaque contrôle.</p>
+      </div>
+      <div class="flex flex-wrap gap-2 mt-4 md:mt-0 md:shrink-0">
+        <select id="filtre" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm">
+          <option value="">Toutes matières</option>
+          {matieres.map((m) => <option>{m}</option>)}
+        </select>
+        <select id="filtreChap" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm">
+          <option value="">Tous les chapitres</option>
+        </select>
+      </div>
+    </div>
+
+    <p id="compte" class="text-xs text-slate-500 mt-4 mb-4"></p>
+    <div id="liste" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-start"></div>
     <p id="vide" class="text-slate-500 text-sm hidden">Aucune fiche encore — <a href={`${import.meta.env.BASE_URL}/fiche`} class="text-brand underline">génère ta première fiche</a>.</p>
   </main>
 
@@ -20,17 +32,44 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     // Protection : redirection si non connecté
     import { isLoggedIn } from '../lib/auth';
     if (!isLoggedIn()) window.location.href = `${import.meta.env.BASE_URL}/login`;
-    import { getFiches, deleteFiche } from '../lib/fiches';
+    import { getFiches, deleteFiche, type Fiche } from '../lib/fiches';
     import { resumeHTML, esc } from '../lib/rendu';
     const liste = document.getElementById('liste')!;
+    const filtreMat = document.getElementById('filtre') as HTMLSelectElement;
+    const filtreChap = document.getElementById('filtreChap') as HTMLSelectElement;
+    const VIDE = '(sans chapitre)';
+    let toutes: Fiche[] = [];
+
+    /** Alimente la liste des chapitres proposés selon la matière filtrée. */
+    function majChapitres() {
+      const mat = filtreMat.value;
+      const chap = Array.from(new Set(
+        toutes.filter((f) => !mat || f.matiere === mat).map((f) => f.chapitre || VIDE)
+      )).sort((a, b) => a.localeCompare(b, 'fr'));
+      const garde = filtreChap.value;
+      filtreChap.innerHTML = '<option value="">Tous les chapitres</option>' +
+        chap.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      if (chap.includes(garde)) filtreChap.value = garde;
+    }
 
     async function render() {
-      const filtre = (document.getElementById('filtre') as HTMLSelectElement).value;
-      const fiches = (await getFiches()).filter((f) => !filtre || f.matiere === filtre);
+      const mat = filtreMat.value;
+      const chap = filtreChap.value;
+      const fiches = toutes.filter((f) =>
+        (!mat || f.matiere === mat) && (!chap || (f.chapitre || VIDE) === chap)
+      );
       document.getElementById('vide')!.classList.toggle('hidden', fiches.length > 0);
+      document.getElementById('compte')!.textContent = fiches.length
+        ? `${fiches.length} fiche${fiches.length > 1 ? 's' : ''} affichée${fiches.length > 1 ? 's' : ''}.`
+        : '';
       liste.innerHTML = fiches.map((f) => `
         <details class="bg-slate-900 rounded-2xl p-5 ring-1 ring-slate-800">
-          <summary class="font-bold cursor-pointer">${esc(f.titre)} <span class="text-xs text-slate-500 font-normal">· ${esc(f.matiere)} · ${new Date(f.date).toLocaleDateString('fr-FR')}</span></summary>
+          <summary class="font-bold cursor-pointer">
+            ${esc(f.titre)}
+            <span class="block text-xs text-slate-500 font-normal mt-1">
+              ${f.chapitre ? `📚 ${esc(f.chapitre)} · ` : ''}${esc(f.matiere)} · ${new Date(f.date).toLocaleDateString('fr-FR')}
+            </span>
+          </summary>
           <div class="mt-3">${resumeHTML(f.resume)}</div>
           <h4 class="text-brand font-bold text-sm mt-5 mb-2 pb-1 border-b border-slate-800">Points clés</h4>
           <ul class="space-y-1.5 text-sm text-slate-200">${f.pointsCles.map((p) => `<li class="leading-relaxed pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('')}</ul>
@@ -39,10 +78,21 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
           <button data-del="${f.id}" class="mt-4 text-xs text-rose-400 hover:text-rose-300">🗑 Supprimer</button>
         </details>`).join('');
       liste.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
-        await deleteFiche((b as HTMLElement).dataset.del!); render();
+        await deleteFiche((b as HTMLElement).dataset.del!);
+        toutes = toutes.filter((x) => x.id !== (b as HTMLElement).dataset.del);
+        majChapitres();
+        render();
       }));
     }
-    (document.getElementById('filtre') as HTMLSelectElement).addEventListener('change', render);
-    render();
+
+    async function charger() {
+      toutes = await getFiches();
+      majChapitres();
+      await render();
+    }
+
+    filtreMat.addEventListener('change', async () => { majChapitres(); filtreChap.value = ''; await render(); });
+    filtreChap.addEventListener('change', render);
+    charger();
   </script>
 </Layout>
