@@ -1,10 +1,9 @@
-// Edge Function Supabase : OCR vision + génération de fiche (proxy vers OpenCode)
+// Edge Function Supabase : OCR vision + génération de fiche (API DeepSeek officielle)
 // Clé API stockée ICI, côté serveur uniquement — jamais exposée au navigateur.
-const OC_URL = 'https://opencode.ai/zen/go/v1/chat/completions';
-const OC_KEY = Deno.env.get('OC_KEY') ?? 'sk-QFiMOduwFxQlXo31gYBxSPeatU4QmZKhGkQrW3MGyTpKil0WOMAJDq0PAdXWQHRK';
-const OC_SESSION = 'ses_cartable_persist';
-// deepseek-flash : modèle natif multimodal (lit les photos pour l'OCR).
-const MODEL = 'deepseek-flash';
+const DS_URL = 'https://api.deepseek.com/chat/completions';
+const DS_KEY = Deno.env.get('DEEPSEEK_API_KEY') ?? 'sk-98d6f19d07894c0b8a8fe16944ade13d';
+// deepseek-chat : lit les images (OCR des photos) et rédige les fiches.
+const MODEL = 'deepseek-chat';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -51,12 +50,11 @@ function parseTolerant(txt: string): any {
 }
 
 async function callIA(msgs: any[], maxTokens = 2600) {
-  const r = await fetch(OC_URL, {
+  const r = await fetch(DS_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${OC_KEY}`,
-      'x-opencode-session': OC_SESSION,
+      Authorization: `Bearer ${DS_KEY}`,
     },
     body: JSON.stringify({ model: MODEL, messages: msgs, temperature: 0.3, max_tokens: maxTokens }),
   });
