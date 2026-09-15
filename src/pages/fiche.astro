@@ -82,8 +82,8 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
   <script>
     import * as pdfjsLib from 'pdfjs-dist';
-    import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+    import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
+    pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
     import { isLoggedIn } from '../lib/auth';
     import { genererFiche, ocrImage } from '../lib/ai';
     import { saveFiche } from '../lib/fiches';
