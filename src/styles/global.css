@@ -28,3 +28,24 @@
   .pastille { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
   .titre-section { @apply text-sm font-bold uppercase tracking-wider text-slate-400; }
 }
+
+/* ---------- impression / export PDF : fond clair, sans l'interface ---------- */
+@media print {
+  .print-hide, nav, header { display: none !important; }
+  html, body { background: #fff !important; color: #111 !important; }
+  .carte, .carte-douce { background: #fff !important; box-shadow: none !important; border: 1px solid #ddd; }
+  .text-slate-200, .text-slate-300, .text-slate-400, .text-slate-500, .text-slate-100 { color: #111 !important; }
+  details { display: block; }
+  details > summary { list-style: none; }
+  details[open] > div, details > div { display: block !important; }
+}
+
+/* ---------- survol pendant un glisser-déposer ---------- */
+body.is-drag::after {
+  content: '📥 Dépose tes fichiers ici';
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(99, 102, 241, .15);
+  border: 3px dashed #6366f1; color: #fff;
+  font-size: 1.35rem; font-weight: 700; pointer-events: none;
+}

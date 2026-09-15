@@ -24,11 +24,13 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
           <label class="block bg-slate-900 border-2 border-slate-700 border-dashed rounded-2xl p-6 text-center cursor-pointer hover:bg-slate-800 transition">
             <span class="text-4xl">📄</span>
-            <span class="block mt-2 font-semibold text-sm">Choisir un PDF</span>
-            <span class="block text-xs text-slate-400 mt-1">Cours numérique ou scan</span>
-            <input id="file" type="file" accept=".pdf,application/pdf" class="hidden" />
+            <span class="block mt-2 font-semibold text-sm">Choisir des PDF</span>
+            <span class="block text-xs text-slate-400 mt-1">Plusieurs possibles</span>
+            <input id="file" type="file" accept=".pdf,application/pdf" multiple class="hidden" />
           </label>
         </div>
+
+        <p class="text-[11px] text-slate-500 mb-4 text-center">…ou <b class="text-slate-400">glisse tes fichiers</b> n'importe où sur la page</p>
 
         <div id="apercu" class="hidden mb-3"></div>
         <p id="pdfInfo" class="text-xs text-slate-400 mb-4"></p>
@@ -56,6 +58,15 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         </label>
 
         <button id="go" disabled class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-40">✨ Générer la fiche</button>
+        <button id="retry" class="hidden mt-2 w-full btn-doux">🔄 Réessayer la fiche</button>
+
+        <div id="barre" class="hidden mt-3">
+          <div class="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+            <div id="barreFill" class="h-full w-0 bg-brand transition-all duration-300"></div>
+          </div>
+          <p id="barreTxt" class="text-[11px] text-slate-500 mt-1"></p>
+        </div>
+
         <div id="status" class="mt-4 text-sm text-slate-300 min-h-[2rem] whitespace-pre-line"></div>
       </div>
 
@@ -69,12 +80,16 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
           <p id="fChapitre" class="text-xs text-brand font-semibold mb-1"></p>
           <p id="fSource" class="text-xs text-slate-500 mb-2"></p>
           <h2 id="fTitre" class="text-xl md:text-2xl font-extrabold mb-4 leading-snug"></h2>
+          <div class="flex flex-wrap gap-2 mb-4 print-hide">
+            <button id="imprimer" type="button" class="btn-doux text-xs">🖨️ Imprimer / PDF</button>
+            <button id="modeRev" type="button" class="btn-doux text-xs">🎯 Mode révision</button>
+          </div>
           <div id="fResume" class="mb-2"></div>
           <h3 class="font-bold text-brand mt-6 mb-2 pb-1 border-b border-slate-800">Points clés</h3>
           <ul id="fPoints" class="space-y-1.5 text-sm text-slate-200 mb-2 md:grid md:grid-cols-2 md:gap-x-6 md:space-y-0 md:gap-y-1.5"></ul>
           <h3 class="font-bold text-brand mt-6 mb-1 pb-1 border-b border-slate-800">Quiz de contrôle</h3>
           <div id="fQuiz" class="space-y-2 mb-4 md:grid md:grid-cols-2 md:gap-2 md:space-y-0 md:items-start"></div>
-          <a href={lien('/revisions')} class="inline-block bg-brand text-white px-4 py-2 rounded-xl text-sm font-semibold">📚 Voir mes fiches</a>
+          <a href={lien('/revisions')} class="inline-block bg-brand text-white px-4 py-2 rounded-xl text-sm font-semibold print-hide">📚 Voir mes fiches</a>
         </section>
       </div>
     </div>
@@ -114,20 +129,36 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     // Fichiers de cours envoyés dans le bucket « cours » pour ce brouillon de fiche
     let fichiers: FichierCours[] = [];
 
+    // ---------- barre de progression ----------
+    const barre = document.getElementById('barre')!;
+    const barreFill = document.getElementById('barreFill')!;
+    const barreTxt = document.getElementById('barreTxt')!;
+    function majProgression(pct: number, txt: string) {
+      barre.classList.remove('hidden');
+      barreFill.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      barreTxt.textContent = txt;
+    }
+    function finProgression() {
+      barreFill.style.width = '100%';
+      setTimeout(() => { barre.classList.add('hidden'); barreFill.style.width = '0%'; barreTxt.textContent = ''; }, 900);
+    }
+
+    // Le bouton « Réessayer » n'apparaît que si la lecture a réussi mais l'IA a échoué.
+    const retryBtn = document.getElementById('retry') as HTMLButtonElement;
+    retryBtn.addEventListener('click', () => genererEtAfficher());
+
     // ---------- chapitres de la matière ----------
     let chapitres: Chapitre[] = [];
 
     function remplirChapitres() {
-      const prog = chapitres.filter((c) => !c.perso);
       const perso = chapitres.filter((c) => c.perso);
       const opt = (c: Chapitre) => `<option value="${esc(c.id)}">${c.numero ? 'n° ' + c.numero + ' · ' : ''}${esc(c.titre)}</option>`;
       chapSel.innerHTML =
         '<option value="">— Choisir un chapitre —</option>' +
-        (prog.length ? `<optgroup label="Programme">${prog.map(opt).join('')}</optgroup>` : '') +
         (perso.length ? `<optgroup label="⭐ Mes chapitres">${perso.map(opt).join('')}</optgroup>` : '');
-      const n = chapitres.length;
+      const n = perso.length;
       chapInfo.textContent = n
-        ? `${n} chapitre${n > 1 ? 's' : ''} proposé${n > 1 ? 's' : ''} (dont ${perso.length} à toi) — choisis-en un, ou tape un nouveau nom pour le créer.`
+        ? `${n} chapitre${n > 1 ? 's' : ''} — choisis-en un, ou tape un nouveau nom pour le créer.`
         : 'Aucun chapitre encore pour cette matière — tape un nom, il sera créé.';
     }
 
@@ -216,10 +247,11 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
       if (!files.length) return;
       fichiers = [];
       setOccupe(true);
+      retryBtn.classList.add('hidden');
       try {
         const images: string[] = [];
         for (let i = 0; i < files.length; i++) {
-          info.textContent = `⏳ Préparation des photos… (${i + 1}/${files.length})`;
+          majProgression(((i + 1) / files.length) * 30, `Préparation des photos… ${i + 1}/${files.length}`);
           images.push(await compresser(files[i]));
         }
         apercu(images);
@@ -231,12 +263,13 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
         let texte = '';
         for (let i = 0; i < images.length; i++) {
-          info.textContent = `🔎 Lecture IA de la page ${i + 1}/${images.length}… (15–40 s par page)`;
+          majProgression(30 + ((i + 1) / images.length) * 65, `Lecture IA de la page ${i + 1}/${images.length}…`);
           const t = await ocrImage(images[i]);
           texte += t + '\n\n';
         }
         texte = texte.trim();
         dernierTexte = texte;
+        finProgression();
 
         if (texte.length < 100) {
           info.textContent = "❌ Photo illisible — reprends-la : feuille entière dans le cadre, bien à plat, sans ombre ni reflet.";
@@ -252,59 +285,101 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
       }
     });
 
-    // ---------- 1b. PDF : texte direct, sinon OCR vision des pages ----------
-    document.getElementById('file')?.addEventListener('change', async (e) => {
-      const f = (e.target as HTMLInputElement).files?.[0];
-      if (!f) return;
-      fichiers = [];
-      setOccupe(true);
-      info.textContent = '⏳ Lecture du PDF…';
-      // Conserver le PDF d'origine dans le bucket « cours », en parallèle de la lecture
-      const envoiPdf = envoyerCours(f, matSel.value, chapInput.value.trim() || 'sans-chapitre', 'pdf')
-        .then((r) => { fichiers = [r]; return r; })
-        .catch(() => null);
-      try {
-        const buf = await f.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-        let full = '';
+    // ---------- 1b. PDF (un ou plusieurs) : texte direct, sinon OCR vision ----------
+    /** Lit un PDF et renvoie son texte (extraction directe si possible, sinon OCR des pages). */
+    async function lirePdf(f: File, pctDebut: number, pctFin: number): Promise<string> {
+      const etendue = pctFin - pctDebut;
+      const buf = await f.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      let full = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const tc = await page.getTextContent();
+        full += tc.items.map((it: any) => ('str' in it ? it.str : '')).join(' ') + '\n';
+        majProgression(pctDebut + (etendue * i) / pdf.numPages / 2, `Lecture de « ${f.name} » — page ${i}/${pdf.numPages}`);
+      }
+      full = full.trim();
+
+      if (full.length < 200 && pdf.numPages <= 8) {
+        const images: string[] = [];
+        const scale = 2; // ~144 dpi
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
-          const tc = await page.getTextContent();
-          full += tc.items.map((it: any) => ('str' in it ? it.str : '')).join(' ') + '\n';
+          const vp = page.getViewport({ scale });
+          const canvas = document.createElement('canvas');
+          canvas.width = vp.width; canvas.height = vp.height;
+          await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport: vp }).promise;
+          const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', 0.85));
+          images.push(`data:image/jpeg;base64,${await blobToB64(blob)}`);
         }
-        full = full.trim();
+        let texte = '';
+        for (let i = 0; i < images.length; i++) {
+          majProgression(pctDebut + etendue * (0.5 + (i + 1) / images.length / 2), `OCR — « ${f.name} » page ${i + 1}/${images.length}`);
+          texte += (await ocrImage(images[i])) + '\n\n';
+        }
+        return texte.trim();
+      }
+      return full;
+    }
 
-        if (full.length < 200 && pdf.numPages <= 8) {
-          info.textContent = `⏳ PDF scanné détecté (${pdf.numPages} p.) — lecture OCR par l'IA (1–3 min)…`;
-          const images: string[] = [];
-          const scale = 2; // ~144 dpi
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const vp = page.getViewport({ scale });
-            const canvas = document.createElement('canvas');
-            canvas.width = vp.width; canvas.height = vp.height;
-            await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport: vp }).promise;
-            const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', 0.85));
-            images.push(`data:image/jpeg;base64,${await blobToB64(blob)}`);
-          }
-          let texte = '';
-          for (let i = 0; i < images.length; i++) {
-            info.textContent = `🔎 Lecture IA de la page ${i + 1}/${images.length}…`;
-            texte += (await ocrImage(images[i])) + '\n\n';
-          }
-          full = texte.trim();
-          info.textContent = `✅ OCR terminé (${pdf.numPages} pages lues).`;
-        } else {
-          info.textContent = `✅ ${pdf.numPages} page(s) — texte extrait (${full.length} caractères).` +
-            (full.length < 200 ? ' ⚠️ PDF trop long ou trop scanné pour OCR auto (max 8 pages).' : '');
+    /** Traite un lot de PDF (sélection ou glisser-déposer) : envoi + lecture + IA. */
+    async function traiterPdfs(files: File[]) {
+      if (!files.length) return;
+      fichiers = [];
+      setOccupe(true);
+      retryBtn.classList.add('hidden');
+      try {
+        // 1) conserver les originaux dans le bucket « cours » (en parallèle)
+        majProgression(3, `Envoi de ${files.length} fichier(s)…`);
+        const envoi = Promise.all(files.map((f) =>
+          envoyerCours(f, matSel.value, chapInput.value.trim() || 'sans-chapitre', 'pdf').catch(() => null)));
+
+        // 2) lire chaque PDF (texte ou OCR)
+        let texte = '';
+        for (let i = 0; i < files.length; i++) {
+          texte += (await lirePdf(files[i], 5 + (i / files.length) * 85, 5 + ((i + 1) / files.length) * 85)) + '\n\n';
         }
-        dernierTexte = full;
-        await envoiPdf;
+        fichiers = (await envoi).filter(Boolean) as FichierCours[];
+        texte = texte.trim();
+        dernierTexte = texte;
+        finProgression();
+
+        if (texte.length < 50) {
+          info.textContent = `❌ Rien d'exploitable dans ${files.length} fichier(s) — texte trop court.`;
+          setOccupe(false);
+          return;
+        }
+        info.textContent = `✅ ${files.length} fichier(s) lu(s) — ${texte.length} caractères reconnus.`;
         setOccupe(false);
-        if ((document.getElementById('auto') as HTMLInputElement).checked && pdf.numPages > 0 && full.length < 200) await genererEtAfficher();
+        if ((document.getElementById('auto') as HTMLInputElement).checked) await genererEtAfficher();
       } catch (err: any) {
         info.textContent = '❌ ' + (err.message || String(err));
+        finProgression();
         setOccupe(false);
+      }
+    }
+
+    document.getElementById('file')?.addEventListener('change', (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      return traiterPdfs(files);
+    });
+
+    // ---------- glisser-déposer de fichiers n'importe où ----------
+    document.addEventListener('dragover', (e) => { e.preventDefault(); document.body.classList.add('is-drag'); });
+    document.addEventListener('dragleave', (e) => { if (e.clientX === 0 && e.clientY === 0) document.body.classList.remove('is-drag'); });
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      document.body.classList.remove('is-drag');
+      const files = Array.from(e.dataTransfer?.files || []);
+      const pdfs = files.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+      const imgs = files.filter((f) => f.type.startsWith('image/'));
+      if (pdfs.length) return traiterPdfs(pdfs);
+      if (imgs.length) {
+        const inp = document.getElementById('photo') as HTMLInputElement;
+        const dt = new DataTransfer();
+        imgs.slice(0, 6).forEach((f) => dt.items.add(f));
+        inp.files = dt.files;
+        inp.dispatchEvent(new Event('change'));
       }
     });
 
@@ -365,12 +440,32 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         bloc.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (err: any) {
         st.textContent = '❌ ' + (err.message || String(err));
+        // La lecture a réussi : on propose de relancer l'IA sans tout refaire.
+        if (dernierTexte && dernierTexte.length >= 50) {
+          retryBtn.classList.remove('hidden');
+          st.textContent += '\nLe texte du cours est conservé : clique sur « 🔄 Réessayer la fiche ».';
+        }
         if (!bloc.classList.contains('hidden')) bloc.classList.remove('hidden');
         else document.getElementById('attente')?.classList.remove('hidden');
       } finally {
         setOccupe(false);
+        finProgression();
       }
     }
+
+    // ---------- impression / export PDF ----------
+    document.getElementById('imprimer')?.addEventListener('click', () => window.print());
+
+    // ---------- mode révision : masque le cours, ne garde que les questions ----------
+    const modeRev = document.getElementById('modeRev') as HTMLButtonElement;
+    let revision = false;
+    modeRev?.addEventListener('click', () => {
+      revision = !revision;
+      document.getElementById('fResume')!.classList.toggle('hidden', revision);
+      document.getElementById('fPoints')!.classList.toggle('hidden', revision);
+      document.querySelectorAll('#fQuiz details').forEach((d) => ((d as HTMLDetailsElement).open = false));
+      modeRev.textContent = revision ? '📖 Afficher le cours' : '🎯 Mode révision';
+    });
 
     goBtn.addEventListener('click', genererEtAfficher);
   </script>
