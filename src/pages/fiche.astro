@@ -14,6 +14,27 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
       <!-- ---------- colonne gauche : ce qu'on donne à lire à l'IA ---------- -->
       <div class="md:sticky md:top-4">
+        <!-- 1) On choisit d'abord OÙ ranger le cours — rien ne part tant que ce n'est pas fait -->
+        <label class="block mb-1 text-sm font-semibold">1. Matière <span class="text-rose-400">*</span></label>
+        <select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-3">
+          <option value="">— Choisis la matière —</option>
+          {matieres.map((m) => <option value={m}>{m}</option>)}
+        </select>
+
+        <div class="mb-3">
+          <label class="block mb-1 text-sm font-semibold">2. Chapitre</label>
+          <select id="chapSel" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-2" disabled>
+            <option value="">— Choisis d'abord la matière —</option>
+          </select>
+          <div class="flex gap-2">
+            <input id="chapitre" type="text" placeholder="…ou tape un nouveau chapitre" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+            <button id="creerChap" type="button" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold px-3 rounded-xl transition">➕ Créer</button>
+          </div>
+          <p id="chapInfo" class="text-xs text-slate-500 mt-1">Choisis une matière pour voir tes chapitres.</p>
+        </div>
+
+        <!-- 2) Puis on donne le document -->
+        <label class="block mb-2 text-sm font-semibold">3. Ton cours</label>
         <div class="grid grid-cols-2 gap-3 mb-4">
           <label class="block bg-brand/10 border-2 border-brand/30 border-dashed rounded-2xl p-6 text-center cursor-pointer hover:bg-brand/20 transition">
             <span class="text-4xl">📷</span>
@@ -35,26 +56,9 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         <div id="apercu" class="hidden mb-3"></div>
         <p id="pdfInfo" class="text-xs text-slate-400 mb-4"></p>
 
-        <label class="block mb-1 text-sm">Matière</label>
-        <select id="matiere" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-3">
-          {matieres.map((m) => <option>{m}</option>)}
-        </select>
-
-        <div class="mb-3">
-          <label class="block mb-1 text-sm">📚 Chapitre <span class="text-slate-500">(facultatif)</span></label>
-          <select id="chapSel" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm mb-2">
-            <option value="">— Choisir un chapitre —</option>
-          </select>
-          <div class="flex gap-2">
-            <input id="chapitre" type="text" placeholder="…ou tape un nouveau chapitre" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
-            <button id="creerChap" type="button" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold px-3 rounded-xl transition">➕ Créer</button>
-          </div>
-          <p id="chapInfo" class="text-xs text-slate-500 mt-1"></p>
-        </div>
-
         <label class="flex items-center gap-2 text-xs text-slate-400 mb-4 cursor-pointer">
-          <input id="auto" type="checkbox" checked class="accent-indigo-500 w-4 h-4" />
-          Enchaîner automatiquement l'IA après la lecture (résumé sans rien toucher)
+          <input id="auto" type="checkbox" class="accent-indigo-500 w-4 h-4" />
+          Enchaîner l'IA tout seul après la lecture (sinon tu cliques sur « Générer »)
         </label>
 
         <button id="go" disabled class="w-full bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-40">✨ Générer la fiche</button>
@@ -164,11 +168,21 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
     async function chargerChapitres() {
       const matiere = matSel.value;
+      if (!matiere) {
+        chapitres = [];
+        chapSel.disabled = true;
+        chapSel.innerHTML = '<option value="">— Choisis d\'abord la matière —</option>';
+        chapInfo.textContent = 'Choisis une matière pour voir tes chapitres.';
+        majBouton();
+        return;
+      }
+      chapSel.disabled = false;
       chapInfo.textContent = '⏳ Chargement des chapitres…';
       chapitres = await getChapitres(matiere);
       remplirChapitres();
       const cParam = params.get('chapitre');
       if (cParam) { chapInput.value = cParam; const c = chapitres.find((x) => x.titre.toLowerCase() === cParam.toLowerCase()); if (c) chapSel.value = c.id; }
+      majBouton();
     }
 
     chapSel.addEventListener('change', () => {
@@ -179,6 +193,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     document.getElementById('creerChap')?.addEventListener('click', async () => {
       const nom = chapInput.value.trim();
       if (!nom) { chapInfo.textContent = '⚠️ Tape d\'abord le nom du chapitre.'; return; }
+      if (!matSel.value) { chapInfo.textContent = '⚠️ Choisis d\'abord la matière.'; matSel.focus(); return; }
       chapInfo.textContent = '⏳ Création…';
       const c = await creerChapitre(matSel.value, nom);
       if (!c) { chapInfo.textContent = '❌ Création impossible (connexion ?). Réessaie.'; return; }
@@ -235,16 +250,23 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
           .join('')}</div>`;
     }
 
+    let occupe = false;
+    /** Le bouton « Générer » n'est actif que si la matière ET le texte du cours sont prêts. */
+    function majBouton() {
+      goBtn.disabled = occupe || dernierTexte.length < 50 || !matSel.value;
+    }
     function setOccupe(v: boolean) {
-      goBtn.disabled = v || dernierTexte.length < 50;
+      occupe = v;
       (document.getElementById('photo') as HTMLInputElement).disabled = v;
       (document.getElementById('file') as HTMLInputElement).disabled = v;
+      majBouton();
     }
 
     // ---------- 1a. PHOTO : appareil photo / galerie → OCR IA ----------
     document.getElementById('photo')?.addEventListener('change', async (e) => {
       const files = Array.from((e.target as HTMLInputElement).files || []).slice(0, 6);
       if (!files.length) return;
+      if (!matSel.value) { info.textContent = '⚠️ Choisis d\'abord la matière (et le chapitre) — rien n\'a été lu.'; (e.target as HTMLInputElement).value = ''; matSel.focus(); return; }
       fichiers = [];
       setOccupe(true);
       retryBtn.classList.add('hidden');
@@ -279,6 +301,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         info.textContent = `✅ ${images.length} page(s) lue(s) — ${texte.length} caractères reconnus.`;
         setOccupe(false);
         if ((document.getElementById('auto') as HTMLInputElement).checked) await genererEtAfficher();
+        else st.textContent = '👉 Choisis le chapitre (ou crée-le), puis clique sur « ✨ Générer la fiche ».';
       } catch (err: any) {
         info.textContent = '❌ ' + (err.message || String(err));
         setOccupe(false);
@@ -325,6 +348,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     /** Traite un lot de PDF (sélection ou glisser-déposer) : envoi + lecture + IA. */
     async function traiterPdfs(files: File[]) {
       if (!files.length) return;
+      if (!matSel.value) { info.textContent = '⚠️ Choisis d\'abord la matière (et le chapitre) — rien n\'a été lu.'; matSel.focus(); return; }
       fichiers = [];
       setOccupe(true);
       retryBtn.classList.add('hidden');
@@ -352,6 +376,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         info.textContent = `✅ ${files.length} fichier(s) lu(s) — ${texte.length} caractères reconnus.`;
         setOccupe(false);
         if ((document.getElementById('auto') as HTMLInputElement).checked) await genererEtAfficher();
+        else st.textContent = '👉 Choisis le chapitre (ou crée-le), puis clique sur « ✨ Générer la fiche ».';
       } catch (err: any) {
         info.textContent = '❌ ' + (err.message || String(err));
         finProgression();
@@ -386,6 +411,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     // ---------- 2. Génération de la fiche + sauvegarde ----------
     async function genererEtAfficher() {
       const matiere = matSel.value;
+      if (!matiere) { st.textContent = "⚠️ Choisis d'abord la matière, puis clique sur « Générer la fiche »."; matSel.focus(); return; }
       if (!dernierTexte || dernierTexte.length < 50) { st.textContent = "⚠️ Choisis d'abord une photo ou un PDF lisible."; return; }
       setOccupe(true);
       const bloc = document.getElementById('fiche')!;
