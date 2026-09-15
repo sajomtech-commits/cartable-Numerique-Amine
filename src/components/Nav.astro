@@ -1,0 +1,52 @@
+---
+// Coquille de navigation de l'application.
+//  - Desktop (md+) : barre supérieure collante avec le nom + les onglets.
+//  - Mobile       : barre d'onglets fixée en bas (pouce), « Scanner » mis en avant.
+import { lien } from '../lib/url';
+
+const onglets = [
+  { chemin: '/',          href: lien('/'),          icone: '🏠', libelle: 'Accueil' },
+  { chemin: '/revisions', href: lien('/revisions'), icone: '📚', libelle: 'Fiches' },
+  { chemin: '/fiche',     href: lien('/fiche'),     icone: '📷', libelle: 'Scanner', principal: true },
+  { chemin: '/login',     href: lien('/login'),     icone: '👤', libelle: 'Compte' },
+];
+
+// Chemin courant, base retirée (le site tourne tantôt à la racine, tantôt en sous-dossier).
+const base = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+const brut = Astro.url.pathname.replace(/\/+$/, '') || '/';
+const chemin = base && brut.startsWith(base) ? (brut.slice(base.length) || '/') : brut;
+const estActif = (c: string) => chemin === c || (c !== '/' && chemin.startsWith(c));
+---
+
+<!-- ---------- Desktop ---------- -->
+<header class="hidden md:block sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur">
+  <div class="max-w-5xl mx-auto px-8 h-16 flex items-center justify-between">
+    <a href={lien('/')} class="flex items-center gap-2 font-extrabold tracking-tight">
+      <span class="grid place-items-center w-9 h-9 rounded-xl bg-brand text-lg shadow-lg">📘</span>
+      <span>Cartable</span>
+    </a>
+    <nav class="flex items-center gap-1">
+      {onglets.map((o) => (
+        <a href={o.href}
+           class:list={["px-4 py-2 rounded-xl text-sm font-semibold transition",
+                        estActif(o.chemin) ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white hover:bg-slate-800/60"]}>
+          <span class="mr-1.5">{o.icone}</span>{o.libelle}
+        </a>
+      ))}
+    </nav>
+  </div>
+</header>
+
+<!-- ---------- Mobile ---------- -->
+<nav class="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-slate-800 bg-slate-950/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+  <div class="grid grid-cols-4">
+    {onglets.map((o) => (
+      <a href={o.href}
+         class:list={["flex flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-semibold transition",
+                      estActif(o.chemin) ? "text-brand" : "text-slate-500"]}>
+        <span class:list={["text-xl leading-none", o.principal ? "grid place-items-center w-11 h-11 -mt-5 rounded-2xl bg-brand text-white shadow-lg ring-4 ring-slate-950" : ""]}>{o.icone}</span>
+        <span>{o.libelle}</span>
+      </a>
+    ))}
+  </div>
+</nav>

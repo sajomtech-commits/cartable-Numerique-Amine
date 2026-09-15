@@ -1,2 +1,30 @@
 @import "tailwindcss";
-@theme { --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif; --color-brand: #6366f1; --color-slate-950: #020617; --color-slate-900: #0f172a; --color-slate-800: #1e293b; }
+
+/* ---------- Jetons de design du cartable ---------- */
+@theme {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-brand: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-slate-950: #020617;
+  --color-slate-900: #0f172a;
+  --color-slate-800: #1e293b;
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { background-color: var(--color-slate-950); color: #f8fafc; -webkit-font-smoothing: antialiased; }
+}
+
+/* ---------- Briques réutilisables (partagées avec la future app collège) ---------- */
+@layer components {
+  .carte { @apply bg-slate-900 rounded-2xl ring-1 ring-slate-800 shadow-lg; }
+  .carte-douce { @apply bg-slate-900/60 rounded-2xl ring-1 ring-slate-800; }
+
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[.97]; }
+  .btn-principal { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[.97] bg-brand text-white hover:bg-brand-600 shadow-lg; }
+  .btn-doux { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[.97] bg-slate-800 text-white hover:bg-slate-700 ring-1 ring-slate-700; }
+  .btn-fantome { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[.97] text-slate-300 hover:text-white hover:bg-slate-800/70; }
+
+  .pastille { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+  .titre-section { @apply text-sm font-bold uppercase tracking-wider text-slate-400; }
+}
