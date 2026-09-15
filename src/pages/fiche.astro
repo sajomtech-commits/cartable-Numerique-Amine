@@ -332,7 +332,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
         st.textContent = '✅ Fiche générée — sauvegarde…';
         try {
-          await saveFiche({ ...fiche, matiere, chapitreId: chapId, fichiers });
+          await saveFiche({ ...fiche, matiere, chapitreId: chapId, fichiers, sourceContenu: dernierTexte });
           st.textContent = '✅ Fiche générée et sauvegardée !' + (chapTitre ? ` (chapitre « ${chapTitre} »)` : '');
           chapitres = await getChapitres(matiere);
           remplirChapitres();

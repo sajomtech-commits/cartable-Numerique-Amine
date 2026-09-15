@@ -12,6 +12,8 @@ export interface Fiche {
   pointsCles: string[];
   quiz: { q: string; r: string }[];
   date: string;
+  /** Texte du cours d'origine (OCR ou extraction PDF). */
+  sourceContenu: string;
   /** Cours d'origine conservés dans le bucket privé « cours » (1 PDF, ou N photos). */
   fichiers: FichierCours[];
 }
@@ -33,7 +35,7 @@ interface Row {
   id: string; matiere?: string; titre: string; resume?: string;
   points_cles?: string[]; quiz?: QuizRow[]; created_at?: string;
   chapitre_id?: string | null; chapitres?: { titre?: string } | null;
-  fichiers?: FichierCours[] | null;
+  fichiers?: FichierCours[] | null; source_contenu?: string | null;
 }
 
 function mapRow(r: Row): Fiche {
@@ -47,6 +49,7 @@ function mapRow(r: Row): Fiche {
     pointsCles: r.points_cles || [],
     quiz: (r.quiz || []).map((q) => ({ q: q.Q ?? q.q ?? '', r: q.R ?? q.r ?? '' })),
     date: r.created_at || new Date().toISOString(),
+    sourceContenu: r.source_contenu || '',
     fichiers: Array.isArray(r.fichiers) ? r.fichiers : [],
   };
 }
@@ -73,6 +76,7 @@ export async function saveFiche(f: Omit<Fiche, 'id' | 'date'>): Promise<Fiche> {
     source_type: f.fichiers.length ? (f.fichiers[0].type || 'texte') : 'texte',
     chapitre_id: f.chapitreId || null,
     fichiers: f.fichiers || [],
+    source_contenu: f.sourceContenu || null,
     // user_id est posé par la base via default auth.uid() quand la session est authentifiée
   };
   const res = await fetch(TABLE, { method: 'POST', headers: headers(token), body: JSON.stringify(body) });

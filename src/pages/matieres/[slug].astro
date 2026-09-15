@@ -2,219 +2,204 @@
 import Layout from '../../layouts/Layout.astro';
 import Barre from '../../components/Barre.astro';
 import { lien } from '../../lib/url';
+import { MATIERES } from '../../lib/matieres';
+
 export function getStaticPaths() {
-  const slugs = ['sport','math','francais','science-num','histoire-geo','espagnol','physique-chimie','svt','anglais','science-eco'];
-  return slugs.map(s => ({ params: { slug: s } }));
+  return MATIERES.map((m) => ({ params: { slug: m.slug } }));
 }
 const { slug } = Astro.params;
-const noms: Record<string,string> = { sport:'Sport', math:'Maths', francais:'Français', 'science-num':'Science Numérique', 'histoire-geo':'Histoire-Géo', espagnol:'Espagnol', 'physique-chimie':'Physique-Chimie', svt:'SVT', anglais:'Anglais', 'science-eco':'Science Éco' };
-const emojis: Record<string,string> = { sport:'⚽', math:'📐', francais:'📚', 'science-num':'💻', 'histoire-geo':'🌍', espagnol:'🇪🇸', 'physique-chimie':'⚗️', svt:'🧬', anglais:'🇬🇧', 'science-eco':'📊' };
-const nom = noms[slug] || slug;
-const emoji = emojis[slug] || '📖';
-
-// Programme officiel de seconde (2025-2026) par matière — thèmes et chapitres
-const programme: Record<string, { titre: string; chapitres: string[] }[]> = {
-  math: [
-    { titre: 'Nombres et calculs', chapitres: ['Nombres et calculs numériques', 'Calcul littéral', 'Vecteurs et translation', 'Repères, distances'] },
-    { titre: 'Géométrie', chapitres: ['Géométrie dans le plan', 'Géométrie dans l\'espace (vecteurs)'] },
-    { titre: 'Fonctions', chapitres: ['Généralités sur les fonctions', 'Variations, extremums', 'Fonctions de référence (carré, inverse, racine)', 'Fonctions polynômes du second degré', 'Trigonométrie (cercle trigo, cosinus, sinus)'] },
-    { titre: 'Statistiques et probabilités', chapitres: ['Statistique descriptive, échantillonnage', 'Probabilités sur un ensemble fini'] },
-    { titre: 'Algorithmique et programmation', chapitres: ['Python : variables, conditions, boucles', 'Notion d\'algorithme'] },
-  ],
-  francais: [
-    { titre: 'Littérature d\'idées du XVIe au XVIIIe siècle', chapitres: ['Persuader, convaincre, délibérer', 'Montaigne (essais)', 'La Fontaine (fables)', 'Voltaire (conte philosophique)'] },
-    { titre: 'Le roman et le récit du Moyen Âge au XXIe siècle', chapitres: ['Écrire et transformer le récit', 'Le roman réaliste', 'Le récit d\'anticipation'] },
-    { titre: 'Théâtre du XVIIe au XXIe siècle', chapitres: ['Représenter et dramatiser', 'La comédie et le registre comique', 'Le tragique et le pathétique'] },
-    { titre: 'Poésie du XIXe au XXIe siècle', chapitres: ['Le poète dans son siècle', 'Baudelaire, Rimbaud, Verlaine', 'La poésie contemporaine'] },
-    { titre: 'Langue française', chapitres: ['Grammaire, orthographe, style', 'Écriture et réécriture', 'Épreuves anticipées (EAF : oral + écrit)'] },
-  ],
-  'physique-chimie': [
-    { titre: 'Constitution et transformations de la matière', chapitres: ['Modélisation de la matière (molécules, ions)', 'Quantité de matière, mole', 'Réactions acide-base', 'Électrolyse, piles', 'Optique : lentilles, lois de Snell-Descartes'] },
-    { titre: 'Mouvement et interactions', chapitres: ['Description du mouvement', 'Forces, principe d\'inertie', 'Pression et forces pressantes'] },
-    { titre: 'L\'énergie : conversions et transferts', chapitres: ['Énergie cinétique et potentielle', 'Conservation de l\'énergie', 'Transferts thermiques', 'Ondes et signaux'] },
-  ],
-  svt: [
-    { titre: 'La Terre dans l\'Univers, la vie et l\'évolution du vivant', chapitres: ['Génétique et diversité des individus', 'ADN et mutation', 'Évolution des espèces', 'La cellule, unité du vivant'] },
-    { titre: 'Enjeux planétaires contemporains', chapitres: ['Écosystèmes et services rendus', 'Sols et agriculture durable', 'Énergie et combustibles fossiles'] },
-    { titre: 'Le corps humain et la santé', chapitres: ['Système immunitaire', 'Neurone, réflexe, cerveau', 'Comportement et santé'] },
-  ],
-  'histoire-geo': [
-    { titre: 'Histoire', chapitres: ['Croissance économique et mondialisation depuis 1945', 'La Seconde Guerre mondiale', 'La Guerre froide', 'Décolonisation', 'La Ve République'] },
-    { titre: 'Géographie', chapitres: ['Mers et océans : enjeux maritimes', 'Dynamiques territoriales de la France', 'La France : nouvelles dynamiques spatiales', 'Étude de cas : la France en villes'] },
-    { titre: 'EMC (Enseignement moral et civique)', chapitres: ['Citoyenneté et démocratie', 'Laïcité', 'Défense et sécurité nationale'] },
-  ],
-  anglais: [
-    { titre: 'Langue', chapitres: ['Grammaire : temps, modaux, voix passive', 'Vocabulaire thématique (société, médias, environnement)', 'Phonétique et accentuation'] },
-    { titre: 'Compréhension et expression', chapitres: ['Compréhension orale (documents audio)', 'Compréhension écrite (articles, extraits)', 'Expression écrite (essai, argumentation)', 'Expression orale continue (présentation)'] },
-    { titre: 'Culture anglophone', chapitres: ['Espaces et échanges', 'Lieux et formes de pouvoir', 'Idée de progrès', 'Mythes et héros'] },
-  ],
-  espagnol: [
-    { titre: 'Langue', chapitres: ['Grammaire : passé simple, subjonctif présent', 'Vocabulaire thématique', 'Phonétique espagnole'] },
-    { titre: 'Compréhension et expression', chapitres: ['Compréhension orale et écrite', 'Expression écrite et orale', 'Interaction (dialogue)'] },
-    { titre: 'Culture hispanophone', chapitres: ['Espagne : régions et cultures', 'Amérique latine : civilisations et actualité', 'Thèmes : immigration, émancipation, art'] },
-  ],
-  'science-num': [
-    { titre: 'Représentation des données', chapitres: ['Binaire, hexadécimal', 'Booléens et logique', 'Représentation des textes, images, sons'] },
-    { titre: 'Types de données de base', chapitres: ['Nombres entiers et réels', 'Caractères et chaînes'] },
-    { titre: 'Algorithmique', chapitres: ['Variables, conditions, boucles', 'Fonctions', 'Tri et recherche', 'Complexité'] },
-    { titre: 'Architecture et réseaux', chapitres: ['Architecture von Neumann', 'Systèmes d\'exploitation', 'Réseaux : IP, protocoles', 'Web : HTML, CSS'] },
-    { titre: 'Langage Python', chapitres: ['Syntaxe de base', 'Bibliothèques usuelles', 'Projet final'] },
-  ],
-  'science-eco': [
-    { titre: 'Les grands enjeux économiques et sociaux', chapitres: ['Croissance, fluctuations et crises', 'Chômage et emploi', 'Inégalités sociales', 'Globalisation'] },
-    { titre: 'Science économique', chapitres: ['Marché et prix', 'Entreprise : production, coût, revenus', 'Monnaie et financement'] },
-    { titre: 'Sociologie et science politique', chapitres: ['Socialisation', 'Groupes et réseaux sociaux', 'Démocratie et participation'] },
-    { titre: 'Regards croisés', chapitres: ['Consommation et modes de vie', 'Travail, emploi, chômage'] },
-  ],
-  sport: [
-    { titre: 'Activités physiques et sportives (APS)', chapitres: ['Natation', 'Athlétisme (course, saut, lancer)', 'Gymnastique', 'Sports collectifs (foot, basket, hand, volley)', 'Badminton, tennis de table', 'Danse', 'Escalade'] },
-    { titre: 'Évaluation et santé', chapitres: ['Épreuves pratiques (contrôle continu)', 'Éducation à la santé', 'Préparation physique'] },
-  ],
-};
-
-const prog = programme[slug] || [];
-const chapTotal = prog.reduce((acc, p) => acc + p.chapitres.length, 0);
-const lienFiche = (chapitre: string) => `${lien('/fiche')}?matiere=${encodeURIComponent(nom)}&chapitre=${encodeURIComponent(chapitre)}`;
+const m = MATIERES.find((x) => x.slug === slug);
+const nom = m?.nom ?? slug;
+const emoji = m?.icon ?? '📖';
 ---
 <Layout title={nom + ' — Amine'}>
-  <main class="max-w-2xl md:max-w-6xl mx-auto px-5 md:px-8 py-8">
-    <Barre />
-    <h1 class="text-3xl md:text-4xl font-extrabold mb-2">{emoji} {nom}</h1>
-    <p class="text-slate-400 mb-6">Programme de seconde, fiches et résumés IA pour cette matière.</p>
+  <main class="max-w-3xl md:max-w-4xl mx-auto px-5 md:px-8 py-6" data-matiere={nom}>
+    <Barre libelle="Accueil" />
 
-    <a href={`${lien('/fiche')}?matiere=${encodeURIComponent(nom)}`} class="inline-block bg-brand hover:bg-indigo-600 text-white font-bold px-6 py-3 rounded-xl shadow transition text-sm mb-6">+ Ajouter un cours (photo ou PDF)</a>
+    <header class="mb-6">
+      <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">{emoji} {nom}</h1>
+      <p id="resumeMat" class="text-slate-400 text-sm mt-1">Tes chapitres, tes cours et tes fiches.</p>
+      <a href={`${lien('/fiche')}?matiere=${encodeURIComponent(nom)}`}
+         class="inline-block mt-2 text-xs text-slate-500 hover:text-brand transition">📷 Ajouter un cours scanné</a>
+    </header>
 
-    <div class="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
-      <section class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl mb-4 lg:mb-0">
-        <h3 class="font-bold text-lg mb-1">📋 Programme de seconde <span class="text-xs font-normal text-slate-500">({chapTotal} chapitres)</span></h3>
-        <p class="text-xs text-slate-500 mb-3">Clique sur un chapitre pour générer sa fiche de révision.</p>
-        {prog.length === 0 && <p class="text-slate-400 text-sm">Programme à venir.</p>}
-        <div class="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 md:items-start">
-          {prog.map((theme) => (
-            <div>
-              <p class="font-semibold text-sm text-brand mb-1">{theme.titre}</p>
-              <ul class="space-y-1 text-sm text-slate-300">
-                {theme.chapitres.map((c) => (
-                  <li>
-                    <a href={lienFiche(c)} class="hover:text-white hover:underline">{c}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div class="space-y-4">
-        <section id="mes-chapitres" class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl" data-matiere={nom}>
-          <h3 class="font-bold text-lg mb-1">⭐ Mes chapitres — {nom}</h3>
-          <p class="text-xs text-slate-500 mb-3">Les chapitres que tu crées ici (leçon en cours, contrôle du prof…) sont proposés ensuite quand tu génères une fiche IA.</p>
-          <div class="flex gap-2 mb-3">
-            <input id="chapNom" type="text" placeholder="Nom du chapitre (ex. Chapitre 4 — Les vecteurs)" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
-            <button id="chapAdd" type="button" class="shrink-0 bg-brand hover:bg-indigo-600 text-white text-sm font-bold px-3 rounded-xl transition">➕ Créer</button>
-          </div>
-          <p id="chapMsg" class="text-xs text-slate-500 mb-2"></p>
-          <ul id="chapList" class="space-y-1 text-sm text-slate-200"></ul>
-        </section>
-
-        <section id="fiches-matiere" class="bg-slate-900 rounded-2xl p-6 ring-1 ring-slate-800 shadow-xl" data-matiere={nom}>
-          <h3 class="font-bold text-lg mb-3">🤖 Mes fiches IA — {nom}</h3>
-          <div id="fiches-list" class="space-y-3">
-            <p class="text-slate-400 text-sm">Chargement…</p>
-          </div>
-          <a href={lien('/revisions')} class="inline-block mt-3 text-xs text-brand hover:underline">→ Toutes mes fiches</a>
-        </section>
+    <!-- créer un chapitre -->
+    <section class="carte p-4 mb-6">
+      <div class="flex gap-2">
+        <input id="chapNom" type="text" placeholder="Nouveau chapitre (ex. Chapitre 3 — Les vecteurs)"
+               class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+        <button id="chapAdd" type="button" class="btn-principal shrink-0">➕ Créer</button>
       </div>
-    </div>
+      <p id="chapMsg" class="text-xs text-slate-500 mt-2"></p>
+    </section>
+
+    <div id="liste" class="space-y-3"></div>
   </main>
-</Layout>
 
-<script>
-  import { getFiches, deleteFiche } from '../../lib/fiches';
-  import { getChapitres, creerChapitre, supprimerChapitre } from '../../lib/chapitres';
-  import { lienCours } from '../../lib/storage';
-  import { isLoggedIn } from '../../lib/auth';
-  import { esc } from '../../lib/rendu';
-  import { lien } from '../../lib/url';
+  <script>
+    import { getFiches, type Fiche } from '../../lib/fiches';
+    import { getChapitres, creerChapitre, renommerChapitre, supprimerChapitre, reordonnerChapitres } from '../../lib/chapitres';
+    import type { Chapitre } from '../../lib/chapitres';
+    import { lienCours } from '../../lib/storage';
+    import { isLoggedIn } from '../../lib/auth';
+    import { resumeHTML, esc } from '../../lib/rendu';
+    import { lien } from '../../lib/url';
 
-  const section = document.getElementById('fiches-matiere')!;
-  const matiere = section.getAttribute('data-matiere')!;
-  const list = document.getElementById('fiches-list')!;
-  const chapMsg = document.getElementById('chapMsg')!;
-  const chapList = document.getElementById('chapList')!;
-  const chapNom = document.getElementById('chapNom') as HTMLInputElement;
-  const NON_CONNECTE = '🔒 <a class="text-brand hover:underline" href="' + lien('/login') + '"">Connecte-toi</a>';
+    const nomMatiere = document.querySelector('main')!.getAttribute('data-matiere')!;
+    const liste = document.getElementById('liste')!;
+    const chapMsg = document.getElementById('chapMsg')!;
+    const chapNom = document.getElementById('chapNom') as HTMLInputElement;
 
-  async function chargerChapitres() {
-    const chaps = await getChapitres(matiere);
-    const perso = chaps.filter((c) => c.perso);
-    if (!perso.length) {
-      chapList.innerHTML = '<li class="text-slate-400 text-sm">Aucun chapitre personnel pour cette matière.</li>';
-      return;
+    let chapitres: Chapitre[] = [];
+    let fiches: Fiche[] = [];
+
+    const dateFr = (d: string) => new Date(d).toLocaleDateString('fr-FR');
+
+    /** Bloc dépliable générique. */
+    const details = (titre: string, contenu: string) =>
+      `<details class="rounded-xl bg-slate-950/70 ring-1 ring-slate-800 overflow-hidden">
+         <summary class="px-3 py-2 text-xs font-semibold text-slate-300 cursor-pointer">${titre}</summary>
+         <div class="px-3 pb-3">${contenu}</div>
+       </details>`;
+
+    /** Les trois parties d'un chapitre : Cours / Fiches de révision / PDF scannés. */
+    function partiesDuChapitre(fs: Fiche[]): string {
+      const cours = fs.filter((f) => f.sourceContenu);
+      const pdfs = fs.flatMap((f) => (f.fichiers || []).map((x) => ({ ...x, fiche: f.titre })));
+
+      const blocCours = cours.length
+        ? cours.map((f) => details('📖 ' + esc(f.titre) + ' — texte du cours',
+            `<pre class="text-[11px] leading-relaxed text-slate-300 whitespace-pre-wrap max-h-72 overflow-auto">${esc(f.sourceContenu.slice(0, 4000))}</pre>`)).join('')
+        : '<p class="text-xs text-slate-500">Aucun cours pour ce chapitre.</p>';
+
+      const blocFiches = fs.length
+        ? fs.map((f) => details('📝 ' + esc(f.titre) + ' · ' + dateFr(f.date),
+            `<div class="text-sm">${resumeHTML(f.resume)}</div>` +
+            (f.pointsCles.length ? `<p class="text-xs font-bold text-brand mt-3 mb-1">Points clés</p><ul class="space-y-1 text-xs text-slate-200">${f.pointsCles.map((p) => '<li class="pl-3 relative"><span class="absolute left-0 text-brand">•</span>' + esc(p) + '</li>').join('')}</ul>` : '') +
+            (f.quiz.length ? `<p class="text-xs font-bold text-brand mt-3 mb-1">Quiz</p><div class="space-y-1">${f.quiz.map((q) => `<details class="bg-slate-900 rounded-lg p-2 text-xs"><summary class="cursor-pointer">${esc(q.q)}</summary><p class="mt-1 text-emerald-300">${esc(q.r)}</p></details>`).join('')}</div>` : '')
+          )).join('')
+        : '<p class="text-xs text-slate-500">Aucune fiche pour ce chapitre.</p>';
+
+      const blocPdf = pdfs.length
+        ? pdfs.map((x) => `<a data-path="${esc(x.path)}" href="#"
+             class="flex items-center gap-2 text-xs text-slate-300 hover:text-brand bg-slate-950/70 ring-1 ring-slate-800 rounded-xl px-3 py-2">
+             <span>${x.type === 'photo' ? '🖼️' : '📄'}</span>
+             <span class="truncate">${esc(x.nom)}</span>
+             <span class="ml-auto text-slate-500 shrink-0">${Math.round((x.taille || 0) / 1024)} Ko</span>
+           </a>`).join('')
+        : '<p class="text-xs text-slate-500">Aucun PDF conservé pour ce chapitre.</p>';
+
+      return `<div class="space-y-3">
+        <div><p class="titre-section mb-2">📖 Cours</p>${blocCours}</div>
+        <div><p class="titre-section mb-2">📝 Fiches de révision</p>${blocFiches}</div>
+        <div><p class="titre-section mb-2">📄 PDF scannés</p><div class="space-y-2">${blocPdf}</div></div>
+      </div>`;
     }
-    chapList.innerHTML = perso.map((c) =>
-      '<li class="flex items-center justify-between gap-2 bg-slate-950 rounded-xl px-3 py-2">' +
-        '<a class="hover:underline" href="' + lien('/fiche') + '?matiere=' + encodeURIComponent(matiere) + '&chapitre=' + encodeURIComponent(c.titre) + '">📚 ' + esc(c.titre) + '</a>' +
-        '<button data-chap="' + c.id + '" class="text-xs text-rose-400 hover:text-rose-300 shrink-0">🗑</button>' +
-      '</li>').join('');
-    chapList.querySelectorAll('[data-chap]').forEach((b) => b.addEventListener('click', async () => {
-      if (!confirm('Supprimer ce chapitre ? Les fiches liées seront conservées (sans chapitre).')) return;
-      await supprimerChapitre((b as HTMLElement).dataset.chap!);
-      await chargerChapitres();
-    }));
-  }
 
-  document.getElementById('chapAdd')?.addEventListener('click', async () => {
-    const nom = chapNom.value.trim();
-    if (!nom) { chapMsg.textContent = '⚠️ Tape le nom du chapitre.'; return; }
-    chapMsg.textContent = '⏳ Création…';
-    const c = await creerChapitre(matiere, nom);
-    if (!c) { chapMsg.textContent = '❌ Création impossible. Réessaie.'; return; }
-    chapMsg.textContent = `✅ « ${c.titre} » ajouté — il sera proposé pour tes fiches IA.`;
-    chapNom.value = '';
-    await chargerChapitres();
-  });
-
-  if (!isLoggedIn()) {
-    list.innerHTML = '<p class="text-slate-400 text-sm">' + NON_CONNECTE + ' pour voir tes fiches de cette matière.</p>';
-    chapList.innerHTML = '<li class="text-slate-400 text-sm">' + NON_CONNECTE + ' pour créer tes chapitres.</li>';
-  } else {
-    chargerChapitres();
-    try {
-      const fiches = (await getFiches()).filter((f) => f.matiere === matiere);
-      if (fiches.length === 0) {
-        list.innerHTML = '<p class="text-slate-400 text-sm">Aucune fiche pour cette matière. Ajoute un cours PDF ci-dessus !</p>';
-      } else {
-        list.innerHTML = fiches.map((f) =>
-          '<details class="bg-slate-800 rounded-xl p-4 text-sm">' +
-          '<summary class="font-semibold cursor-pointer">' + esc(f.titre) + ' <span class="text-xs text-slate-500 font-normal">' + (f.chapitre ? '📚 ' + esc(f.chapitre) + ' · ' : '') + new Date(f.date).toLocaleDateString('fr-FR') + '</span></summary>' +
-          '<p class="mt-2 text-slate-200 whitespace-pre-line">' + esc(f.resume) + '</p>' +
-          (f.pointsCles.length ? '<p class="mt-2 font-semibold text-brand">Points clés</p><ul class="list-disc list-inside text-slate-200 mt-1 space-y-0.5">' + f.pointsCles.map((p) => '<li>' + esc(p) + '</li>').join('') + '</ul>' : '') +
-          '<div class="mt-3 flex items-center gap-4">' +
-          (f.fichiers?.length ? '<a data-fic="' + f.id + '" href="#" class="text-xs text-brand hover:underline" title="' + esc(f.fichiers[0].nom) + '">📎 Cours d\'origine</a>' : '') +
-          '<button data-del="' + f.id + '" class="text-xs text-red-400 hover:text-red-300">🗑 Supprimer</button>' +
-          '</div>' +
-          '</details>').join('');
-        list.querySelectorAll('[data-del]').forEach((btn) => {
-          btn.addEventListener('click', async () => {
-            if (confirm('Supprimer cette fiche ?')) {
-              await deleteFiche((btn as HTMLElement).getAttribute('data-del')!);
-              (btn as HTMLElement).closest('details')?.remove();
-            }
-          });
-        });
-        // Liens signés vers les cours d'origine (bucket privé « cours »)
-        list.querySelectorAll('[data-fic]').forEach((a) => {
-          const f = fiches.find((x) => x.id === (a as HTMLElement).getAttribute('data-fic'));
-          if (!f?.fichiers?.length) return;
-          lienCours(f.fichiers[0].path).then((u) => {
-            if (u) { (a as HTMLAnchorElement).href = u; (a as HTMLAnchorElement).target = '_blank'; (a as HTMLAnchorElement).rel = 'noopener'; }
-          });
-        });
-      }
-    } catch {
-      list.innerHTML = '<p class="text-slate-400 text-sm">❌ Impossible de charger les fiches.</p>';
+    function carteChapitre(c: Chapitre | null, fs: Fiche[], index: number) {
+      const id = c?.id ?? 'sans';
+      const titre = c ? esc(c.titre) : 'Sans chapitre';
+      const nbPdf = fs.reduce((n, f) => n + (f.fichiers || []).length, 0);
+      const actions = c
+        ? `<button data-up title="Monter" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 ${index === 0 ? 'opacity-30' : ''}">↑</button>
+           <button data-down title="Descendre" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 ${index === chapitres.length - 1 ? 'opacity-30' : ''}">↓</button>
+           <button data-ren title="Renommer" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700">✏️</button>
+           <button data-del title="Supprimer" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-rose-900/60">🗑</button>`
+        : '';
+      return `<article class="carte overflow-hidden" data-chap="${id}">
+        <header class="flex items-center gap-2 p-3">
+          <button data-toggle class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 shrink-0">▸</button>
+          ${c ? `<span class="pastille bg-brand/20 text-brand shrink-0">n° ${c.numero ?? '?'}</span>` : ''}
+          <h3 class="flex-1 font-bold text-sm truncate">${titre}</h3>
+          <span class="text-[11px] text-slate-500 shrink-0">${fs.length} fiche${fs.length > 1 ? 's' : ''}${nbPdf ? ' · ' + nbPdf + ' PDF' : ''}</span>
+          <div class="flex gap-1 shrink-0">${actions}</div>
+        </header>
+        <div class="hidden border-t border-slate-800 p-4" data-corps>${partiesDuChapitre(fs)}</div>
+      </article>`;
     }
-  }
-</script>
+
+    function rendre() {
+      const parChap = new Map<string, Fiche[]>();
+      fiches.forEach((f) => {
+        const k = f.chapitreId || 'sans';
+        parChap.set(k, [...(parChap.get(k) || []), f]);
+      });
+      const orphelines = parChap.get('sans') || [];
+      const totalPdf = fiches.reduce((n, f) => n + (f.fichiers || []).length, 0);
+      document.getElementById('resumeMat')!.textContent =
+        `${chapitres.length} chapitre${chapitres.length > 1 ? 's' : ''} · ${fiches.length} fiche${fiches.length > 1 ? 's' : ''}${totalPdf ? ' · ' + totalPdf + ' PDF' : ''}`;
+
+      liste.innerHTML = chapitres.length || orphelines.length
+        ? chapitres.map((c, i) => carteChapitre(c, parChap.get(c.id) || [], i)).join('') +
+          (orphelines.length ? carteChapitre(null, orphelines, -1) : '')
+        : '<p class="carte-douce p-6 text-center text-sm text-slate-400">Aucun chapitre pour l\'instant.<br />Crée ton premier chapitre ci-dessus, puis ajoute un cours scanné.</p>';
+
+      // déplier / replier
+      liste.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', () => {
+        const corps = (b as HTMLElement).closest('article')!.querySelector('[data-corps]')!;
+        const ouvert = corps.classList.toggle('hidden');
+        (b as HTMLElement).textContent = ouvert ? '▸' : '▾';
+      }));
+
+      // liens signés vers les PDF (bucket privé)
+      liste.querySelectorAll('[data-path]').forEach((a) => {
+        lienCours((a as HTMLElement).dataset.path!, 3600, true).then((u) => {
+          if (u) { (a as HTMLAnchorElement).href = u; (a as HTMLAnchorElement).target = '_blank'; (a as HTMLAnchorElement).rel = 'noopener'; }
+        });
+      });
+
+      // actions sur un chapitre
+      liste.querySelectorAll('article[data-chap]').forEach((art) => {
+        const id = art.getAttribute('data-chap')!;
+        if (id === 'sans') return;
+        const idx = chapitres.findIndex((c) => c.id === id);
+        art.querySelector('[data-up]')?.addEventListener('click', async () => {
+          if (idx <= 0) return;
+          const ids = chapitres.map((c) => c.id);
+          [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+          if (await reordonnerChapitres(ids)) { await charger(); }
+        });
+        art.querySelector('[data-down]')?.addEventListener('click', async () => {
+          if (idx < 0 || idx >= chapitres.length - 1) return;
+          const ids = chapitres.map((c) => c.id);
+          [ids[idx + 1], ids[idx]] = [ids[idx], ids[idx + 1]];
+          if (await reordonnerChapitres(ids)) { await charger(); }
+        });
+        art.querySelector('[data-ren]')?.addEventListener('click', async () => {
+          const actuel = chapitres[idx]?.titre || '';
+          const nouveau = prompt('Nouveau nom du chapitre :', actuel);
+          if (nouveau === null || !nouveau.trim() || nouveau.trim() === actuel) return;
+          if (await renommerChapitre(id, nouveau)) await charger();
+          else alert('Renommage impossible.');
+        });
+        art.querySelector('[data-del]')?.addEventListener('click', async () => {
+          if (!confirm('Supprimer ce chapitre ? Les fiches liées seront conservées (sans chapitre).')) return;
+          if (await supprimerChapitre(id)) await charger();
+        });
+      });
+    }
+
+    async function charger() {
+      chapitres = (await getChapitres(nomMatiere)).filter((c) => c.perso);
+      fiches = (await getFiches()).filter((f) => f.matiere === nomMatiere);
+      rendre();
+    }
+
+    document.getElementById('chapAdd')?.addEventListener('click', async () => {
+      const nom = chapNom.value.trim();
+      if (!nom) { chapMsg.textContent = '⚠️ Tape le nom du chapitre.'; return; }
+      chapMsg.textContent = '⏳ Création…';
+      const c = await creerChapitre(nomMatiere, nom);
+      if (!c) { chapMsg.textContent = '❌ Création impossible. Réessaie.'; return; }
+      chapNom.value = '';
+      chapMsg.textContent = `✅ Chapitre « ${c.titre} » créé.`;
+      await charger();
+    });
+
+    if (!isLoggedIn()) {
+      liste.innerHTML = '<p class="carte-douce p-6 text-center text-sm text-slate-400">🔒 <a class="text-brand hover:underline" href="' + lien('/login') + '">Connecte-toi</a> pour voir tes chapitres.</p>';
+    } else {
+      charger();
+    }
+  </script>
 </Layout>

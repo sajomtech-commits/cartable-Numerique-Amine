@@ -66,7 +66,7 @@ export async function getChapitres(matiere: string): Promise<Chapitre[]> {
   const q =
     'select=id,titre,numero,user_id&' +
     `or=(matiere.eq.${encodeURIComponent(slug)},matiere.eq.${encodeURIComponent(matiere)})&` +
-    'order=numero.asc.nullslast,titre.asc&limit=400';
+    'order=numero.asc.nullslast,created_at.asc&limit=400';
   try {
     const res = await fetch(`${TABLE}?${q}`, { headers: entetes(token) });
     if (!res.ok) return [];
@@ -88,18 +88,51 @@ export async function creerChapitre(matiere: string, titre: string): Promise<Cha
   if (!token) return null;
   const propre = titre.trim().replace(/\s+/g, ' ').slice(0, 120);
   if (!propre) return null;
+  // Numéro à la suite des chapitres existants de la matière
+  const existants = await getChapitres(matiere);
+  const numero = existants.reduce((m, c) => Math.max(m, c.numero || 0), 0) + 1;
   const res = await fetch(TABLE, {
     method: 'POST',
     headers: entetes(token),
-    body: JSON.stringify({ matiere: slugMatiere(matiere), titre: propre }),
+    body: JSON.stringify({ matiere: slugMatiere(matiere), titre: propre, numero }),
   });
   if (res.ok) {
     const r = (await res.json())[0];
     return { id: r.id, titre: r.titre, numero: r.numero ?? null, perso: true };
   }
   // 409 : le chapitre existe déjà (même matière + même titre) → on le récupère
-  const existants = await getChapitres(matiere);
-  return existants.find((c) => norm(c.titre) === norm(propre)) || null;
+  const deja = await getChapitres(matiere);
+  return deja.find((c) => norm(c.titre) === norm(propre)) || null;
+}
+
+/** Renomme un chapitre personnel. */
+export async function renommerChapitre(id: string, titre: string): Promise<boolean> {
+  const token = await validToken();
+  if (!token) return false;
+  const propre = titre.trim().replace(/\s+/g, ' ').slice(0, 120);
+  if (!propre) return false;
+  const res = await fetch(`${TABLE}?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: entetes(token),
+    body: JSON.stringify({ titre: propre }),
+  });
+  return res.ok;
+}
+
+/** Réordonne les chapitres selon la liste d'ids fournie (ordre voulu). */
+export async function reordonnerChapitres(ids: string[]): Promise<boolean> {
+  const token = await validToken();
+  if (!token) return false;
+  const res = await Promise.all(
+    ids.map((id, i) =>
+      fetch(`${TABLE}?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: entetes(token),
+        body: JSON.stringify({ numero: i + 1 }),
+      }).then((r) => r.ok).catch(() => false)
+    )
+  );
+  return res.every(Boolean);
 }
 
 /** Supprime un chapitre personnel (impossible pour un chapitre du programme). */
