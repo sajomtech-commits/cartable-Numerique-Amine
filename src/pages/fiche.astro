@@ -67,6 +67,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
         <section id="fiche" class="hidden bg-slate-900 rounded-2xl p-6 md:p-8 ring-1 ring-slate-800">
           <p id="fChapitre" class="text-xs text-brand font-semibold mb-1"></p>
+          <p id="fSource" class="text-xs text-slate-500 mb-2"></p>
           <h2 id="fTitre" class="text-xl md:text-2xl font-extrabold mb-4 leading-snug"></h2>
           <div id="fResume" class="mb-2"></div>
           <h3 class="font-bold text-brand mt-6 mb-2 pb-1 border-b border-slate-800">Points clés</h3>
@@ -86,6 +87,8 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     import { isLoggedIn } from '../lib/auth';
     import { genererFiche, ocrImage } from '../lib/ai';
     import { saveFiche } from '../lib/fiches';
+    import { envoyerCours, lienCours } from '../lib/storage';
+    import type { FichierCours } from '../lib/storage';
     import { getChapitres, creerChapitre, trouverOuCreer } from '../lib/chapitres';
     import type { Chapitre } from '../lib/chapitres';
     import { resumeHTML, esc } from '../lib/rendu';
@@ -108,6 +111,8 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     }
 
     let dernierTexte = '';
+    // Fichiers de cours envoyés dans le bucket « cours » pour ce brouillon de fiche
+    let fichiers: FichierCours[] = [];
 
     // ---------- chapitres de la matière ----------
     let chapitres: Chapitre[] = [];
@@ -209,6 +214,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     document.getElementById('photo')?.addEventListener('change', async (e) => {
       const files = Array.from((e.target as HTMLInputElement).files || []).slice(0, 6);
       if (!files.length) return;
+      fichiers = [];
       setOccupe(true);
       try {
         const images: string[] = [];
@@ -217,6 +223,11 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
           images.push(await compresser(files[i]));
         }
         apercu(images);
+
+        // Conserver les photos d'origine dans le bucket « cours » (rangées matière/chapitre)
+        fichiers = (await Promise.all(
+          files.map((f) => envoyerCours(f, matSel.value, chapInput.value.trim() || 'sans-chapitre', 'photo').catch(() => null))
+        )).filter(Boolean) as FichierCours[];
 
         let texte = '';
         for (let i = 0; i < images.length; i++) {
@@ -245,8 +256,13 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     document.getElementById('file')?.addEventListener('change', async (e) => {
       const f = (e.target as HTMLInputElement).files?.[0];
       if (!f) return;
+      fichiers = [];
       setOccupe(true);
       info.textContent = '⏳ Lecture du PDF…';
+      // Conserver le PDF d'origine dans le bucket « cours », en parallèle de la lecture
+      const envoiPdf = envoyerCours(f, matSel.value, chapInput.value.trim() || 'sans-chapitre', 'pdf')
+        .then((r) => { fichiers = [r]; return r; })
+        .catch(() => null);
       try {
         const buf = await f.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
@@ -283,6 +299,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
             (full.length < 200 ? ' ⚠️ PDF trop long ou trop scanné pour OCR auto (max 8 pages).' : '');
         }
         dernierTexte = full;
+        await envoiPdf;
         setOccupe(false);
         if ((document.getElementById('auto') as HTMLInputElement).checked && pdf.numPages > 0 && full.length < 200) await genererEtAfficher();
       } catch (err: any) {
@@ -315,7 +332,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
         st.textContent = '✅ Fiche générée — sauvegarde…';
         try {
-          await saveFiche({ ...fiche, matiere, chapitreId: chapId });
+          await saveFiche({ ...fiche, matiere, chapitreId: chapId, fichiers });
           st.textContent = '✅ Fiche générée et sauvegardée !' + (chapTitre ? ` (chapitre « ${chapTitre} »)` : '');
           chapitres = await getChapitres(matiere);
           remplirChapitres();
@@ -326,6 +343,16 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         bloc.classList.remove('hidden');
         const chapEl = document.getElementById('fChapitre')!;
         chapEl.textContent = chapTitre ? `📚 ${chapTitre}` : '';
+        // Lien vers le cours d'origine conservé dans le bucket « cours »
+        const srcEl = document.getElementById('fSource')!;
+        if (fichiers.length) {
+          const noms = fichiers.map((x) => esc(x.nom)).join(', ');
+          srcEl.innerHTML = `📎 Cours d'origine : <a href="#" id="fSourceLien" class="text-brand hover:underline">${noms}</a>`;
+          const a = document.getElementById('fSourceLien') as HTMLAnchorElement | null;
+          if (a) lienCours(fichiers[0].path).then((u) => { if (u) { a.href = u; a.target = '_blank'; a.rel = 'noopener'; } });
+        } else {
+          srcEl.innerHTML = '';
+        }
         document.getElementById('fTitre')!.textContent = fiche.titre;
         document.getElementById('fResume')!.innerHTML = resumeHTML(fiche.resume);
         document.getElementById('fPoints')!.innerHTML = fiche.pointsCles

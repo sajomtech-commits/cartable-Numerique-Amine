@@ -1,5 +1,6 @@
 // Fiches de révision — stockage Supabase (REST) par utilisateur authentifié
 import { validToken } from './auth';
+import type { FichierCours } from './storage';
 
 export interface Fiche {
   id: string;
@@ -11,6 +12,8 @@ export interface Fiche {
   pointsCles: string[];
   quiz: { q: string; r: string }[];
   date: string;
+  /** Cours d'origine conservés dans le bucket privé « cours » (1 PDF, ou N photos). */
+  fichiers: FichierCours[];
 }
 
 const URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
@@ -30,6 +33,7 @@ interface Row {
   id: string; matiere?: string; titre: string; resume?: string;
   points_cles?: string[]; quiz?: QuizRow[]; created_at?: string;
   chapitre_id?: string | null; chapitres?: { titre?: string } | null;
+  fichiers?: FichierCours[] | null;
 }
 
 function mapRow(r: Row): Fiche {
@@ -43,6 +47,7 @@ function mapRow(r: Row): Fiche {
     pointsCles: r.points_cles || [],
     quiz: (r.quiz || []).map((q) => ({ q: q.Q ?? q.q ?? '', r: q.R ?? q.r ?? '' })),
     date: r.created_at || new Date().toISOString(),
+    fichiers: Array.isArray(r.fichiers) ? r.fichiers : [],
   };
 }
 
@@ -65,8 +70,9 @@ export async function saveFiche(f: Omit<Fiche, 'id' | 'date'>): Promise<Fiche> {
     resume: f.resume,
     points_cles: f.pointsCles,
     quiz: f.quiz.map((q) => ({ Q: q.q, R: q.r })),
-    source_type: 'texte',
+    source_type: f.fichiers.length ? (f.fichiers[0].type || 'texte') : 'texte',
     chapitre_id: f.chapitreId || null,
+    fichiers: f.fichiers || [],
     // user_id est posé par la base via default auth.uid() quand la session est authentifiée
   };
   const res = await fetch(TABLE, { method: 'POST', headers: headers(token), body: JSON.stringify(body) });

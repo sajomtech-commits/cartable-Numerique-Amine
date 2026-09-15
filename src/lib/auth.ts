@@ -31,6 +31,17 @@ export function logout(): void {
   localStorage.removeItem(SKEY);
 }
 
+/** Identifiant de l'utilisateur connecté (champ « sub » du JWT), ou null. */
+export function userID(): string | null {
+  const s = getSession();
+  if (!s) return null;
+  try {
+    const part = s.access_token.split('.')[1] || '';
+    const json = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+    return json.sub || null;
+  } catch { return null; }
+}
+
 export async function login(email: string, password: string): Promise<Session> {
   const res = await fetch(`${BASE}/auth/v1/token?grant_type=password`, {
     method: 'POST',
