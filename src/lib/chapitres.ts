@@ -105,7 +105,7 @@ export async function creerChapitre(matiere: string, titre: string): Promise<Cha
   return deja.find((c) => norm(c.titre) === norm(propre)) || null;
 }
 
-/** Renomme un chapitre personnel. */
+/** Renomme un chapitre. Renvoie false si rien n'a été modifié (droits, réseau). */
 export async function renommerChapitre(id: string, titre: string): Promise<boolean> {
   const token = await validToken();
   if (!token) return false;
@@ -116,7 +116,11 @@ export async function renommerChapitre(id: string, titre: string): Promise<boole
     headers: entetes(token),
     body: JSON.stringify({ titre: propre }),
   });
-  return res.ok;
+  if (!res.ok) return false;
+  try {
+    const rows = await res.json();
+    return Array.isArray(rows) && rows.length > 0;
+  } catch { return false; }
 }
 
 /** Réordonne les chapitres selon la liste d'ids fournie (ordre voulu). */
@@ -129,18 +133,32 @@ export async function reordonnerChapitres(ids: string[]): Promise<boolean> {
         method: 'PATCH',
         headers: entetes(token),
         body: JSON.stringify({ numero: i + 1 }),
-      }).then((r) => r.ok).catch(() => false)
+      })
+        .then(async (r) => {
+          if (!r.ok) return false;
+          try {
+            const j = await r.json();
+            return Array.isArray(j) && j.length > 0;
+          } catch { return false; }
+        })
+        .catch(() => false)
     )
   );
   return res.every(Boolean);
 }
 
-/** Supprime un chapitre personnel (impossible pour un chapitre du programme). */
+/** Supprime un chapitre. Renvoie false si la suppression n'a pas abouti (droits, réseau). */
 export async function supprimerChapitre(id: string): Promise<boolean> {
   const token = await validToken();
   if (!token) return false;
   const res = await fetch(`${TABLE}?id=eq.${id}`, { method: 'DELETE', headers: entetes(token) });
-  return res.ok;
+  if (!res.ok) return false;
+  // PostgREST renvoie 200 + [] quand les droits (RLS) bloquent la suppression :
+  // on vérifie donc qu'une ligne a bien été supprimée.
+  try {
+    const rows = await res.json();
+    return Array.isArray(rows) && rows.length > 0;
+  } catch { return false; }
 }
 
 /** Retrouve un chapitre par son titre (insensible à la casse/accents), sinon le crée. */

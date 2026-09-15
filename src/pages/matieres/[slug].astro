@@ -177,6 +177,7 @@ const emoji = m?.icon ?? '📖';
         art.querySelector('[data-del]')?.addEventListener('click', async () => {
           if (!confirm('Supprimer ce chapitre ? Les fiches liées seront conservées (sans chapitre).')) return;
           if (await supprimerChapitre(id)) await charger();
+          else alert('❌ Suppression impossible.\nVérifie que tu es bien connecté, puis réessaie.');
         });
       });
     }
