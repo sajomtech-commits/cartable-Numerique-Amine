@@ -54,11 +54,25 @@ RLS activée partout :
 ## Déploiement
 
 1. `SITE_BASE=/ SITE_URL=https://amine.sagetech.vip npm run build` → `dist/`.
-2. Le build est empaqueté (`site.tar.gz`) et déposé dans le bucket Storage `amine`.
-3. Le service Coolify `amine-site` (nginx) télécharge l'archive au démarrage
-   (`services/` → voir `start.sh`) et la sert.
+   (le `.env` doit exister : `cp .env.example .env`)
+2. Empaqueter : `tar czf site.tar.gz -C dist .`
+3. Déposer l'archive dans le bucket Storage `amine` sous le nom `site.tar.gz`
+   (`POST /storage/v1/object/amine/site.tar.gz`, en-tête `x-upsert: true`,
+   avec la clé service_role — le bucket n'a pas de policy d'écriture publique).
+4. Redémarrer le service Coolify `amine-site` :
+   `POST /api/v1/services/{uuid}/restart` — au démarrage, `start.sh` retélécharge
+   l'archive dans nginx.
 
 GitHub Pages est aussi cible via `.github/workflows/deploy.yml` (base `/cartable-Numerique-Amaine`).
+
+### Fonction Edge (IA)
+
+Le code versionné (`supabase/functions/cartable-ia/index.ts`) doit être copié sur
+le VPS dans `/data/coolify/services/<uuid-supabase>/volumes/functions/cartable-ia/index.ts`
+(volume monté dans le conteneur `supabase-edge-functions`). Le runtime **recharge à chaud**
+(visible via `GET /functions/v1/cartable-ia/health`). Modèle actuel : `deepseek-flash`
+(vision → OCR + génération de fiche), servi par la passerelle OpenCode.
+
 
 ## Points de vigilance
 

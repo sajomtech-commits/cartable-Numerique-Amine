@@ -3,7 +3,8 @@
 const OC_URL = 'https://opencode.ai/zen/go/v1/chat/completions';
 const OC_KEY = Deno.env.get('OC_KEY') ?? 'sk-QFiMOduwFxQlXo31gYBxSPeatU4QmZKhGkQrW3MGyTpKil0WOMAJDq0PAdXWQHRK';
 const OC_SESSION = 'ses_cartable_persist';
-const MODEL = 'glm-5.3-flash';
+// deepseek-flash : modèle natif multimodal (lit les photos pour l'OCR).
+const MODEL = 'deepseek-flash';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -121,7 +122,7 @@ Deno.serve(async (req: Request) => {
       let fiche: any = null;
       let derreur = '';
       for (let essai = 0; essai < 2 && !fiche; essai++) {
-        let raw = await callIA(msgs, 3400);
+        let raw = await callIA(msgs, 6000);
         raw = raw.replace(/```json|```/g, '').trim();
         const first = raw.indexOf('{'), last = raw.lastIndexOf('}');
         if (first >= 0 && last > first) raw = raw.slice(first, last + 1);
@@ -151,7 +152,7 @@ Deno.serve(async (req: Request) => {
           { type: 'text', text: prompt || OCR_PROMPT },
           { type: 'image_url', image_url: { url: img } },
         ];
-        texte += (await callIA([{ role: 'user', content }], 3000)) + '\n\n';
+        texte += (await callIA([{ role: 'user', content }], 4096)) + '\n\n';
       }
       return new Response(JSON.stringify({ texte: texte.trim() }), { headers: { ...CORS, 'Content-Type': 'application/json' } });
     }
