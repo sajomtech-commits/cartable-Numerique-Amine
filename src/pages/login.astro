@@ -29,6 +29,8 @@ import Barre from '../components/Barre.astro';
   </main>
 
   <script>
+    import { racine } from '../lib/url';
+
     const BASE = import.meta.env.PUBLIC_SUPABASE_URL;
     const KEY = import.meta.env.PUBLIC_SUPABASE_KEY;
     // racine du site : '/' sur amine.sagetech.vip, '/cartable-Numerique-Amaine' sur GitHub Pages
