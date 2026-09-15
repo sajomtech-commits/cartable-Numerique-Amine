@@ -9,6 +9,10 @@ export interface Fiche {
   resume: string;
   pointsCles: string[];
   quiz: { q: string; r: string }[];
+  /** Matières vivantes : traduction française du cours. */
+  traduction?: string;
+  /** Matières vivantes : vocabulaire traduit (langue → français). */
+  vocabulaire?: { mot: string; fr: string }[];
 }
 
 async function post(route: string, payload: unknown, timeoutMs = 180000) {
@@ -53,6 +57,12 @@ export async function genererFiche(texte: string, matiere: string): Promise<Fich
     resume: j.resume || '',
     pointsCles: Array.isArray(j.pointsCles) ? j.pointsCles : [],
     quiz: Array.isArray(j.quiz) ? j.quiz : [],
+    traduction: typeof j.traduction === 'string' ? j.traduction : '',
+    vocabulaire: Array.isArray(j.vocabulaire)
+      ? j.vocabulaire
+          .map((v: any) => ({ mot: String(v?.mot ?? v?.[0] ?? '').trim(), fr: String(v?.fr ?? v?.[1] ?? '').trim() }))
+          .filter((v: { mot: string; fr: string }) => v.mot && v.fr)
+      : [],
   };
 }
 

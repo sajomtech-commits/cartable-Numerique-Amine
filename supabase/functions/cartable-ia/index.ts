@@ -66,6 +66,33 @@ async function callIA(msgs: any[], maxTokens = 2600) {
 
 const JSON_FICHE = '{"titre":"...","resume":"...","pointsCles":["..."],"quiz":[{"q":"...","r":"..."}]}';
 
+/** Matières vivantes : la fiche doit être une aide bilingue tournée vers le français. */
+const LANGUES = ['anglais', 'espagnol', 'allemand', 'italien', 'portugais'];
+const estLangue = (matiere: string) => LANGUES.includes(matiere.trim().toLowerCase());
+
+const JSON_FICHE_LANGUE =
+  '{"titre":"...","traduction":"...","resume":"...","vocabulaire":[{"mot":"...","fr":"..."}],"pointsCles":["..."],"quiz":[{"q":"...","r":"..."}]}';
+
+/** Prompt pour les langues : traduction française + résumé + vocabulaire traduit. */
+function promptLangue(matiere: string, texte: string) {
+  return `Tu es un professeur de ${matiere} qui aide un élève FRANCOPHONE de 2nde.
+Le texte ci-dessous est un cours (ou un document) rédigé en ${matiere}.
+Produis une aide entièrement rédigée EN FRANÇAIS, en JSON valide uniquement, sans texte avant/après, au format exact :
+${JSON_FICHE_LANGUE}
+
+RÈGLES :
+- "titre" : titre court de la leçon, en français.
+- "traduction" : la TRADUCTION FIDÈLE EN FRANÇAIS de tout le texte du cours, en gardant sa structure (titres "## ", listes "- "). Ne résume PAS ici : traduis. C'est la partie la plus importante.
+- "resume" : résumé de la leçon EN FRANÇAIS, découpé en 4 à 7 sections "## Titre court", 2 à 5 lignes courtes par section, puces "- ".
+- "vocabulaire" : 10 à 20 mots ou expressions importants du texte, avec leur traduction française ("mot" = dans la langue étudiée, "fr" = en français).
+- "pointsCles" : 5 à 8 points essentiels EN FRANÇAIS (grammaire, conjugaison, tournures, faux-amis), une phrase courte chacun.
+- "quiz" : 4 à 6 questions EN FRANÇAIS, avec le mot ou la phrase en ${matiere} quand c'est utile, et leur réponse.
+- N'invente rien qui ne soit pas dans le texte.
+
+TEXTE DU COURS :
+${texte.slice(0, 24000)}`;
+}
+
 function promptFiche(matiere: string, texte: string) {
   return `Tu es un professeur qui prépare des fiches de révision pour un élève de 2nde.
 Matière : ${matiere}.
@@ -115,7 +142,7 @@ Deno.serve(async (req: Request) => {
       }
       const msgs: any[] = [
         { role: 'system', content: 'Tu réponds toujours en JSON pur, sans balise markdown, avec des chaînes sur une seule ligne (retours à la ligne écrits \\n).' },
-        { role: 'user', content: promptFiche(matiere, texte) },
+        { role: 'user', content: estLangue(matiere) ? promptLangue(matiere, texte) : promptFiche(matiere, texte) },
       ];
       let fiche: any = null;
       let derreur = '';

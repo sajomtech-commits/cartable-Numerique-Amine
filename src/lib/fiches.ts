@@ -14,6 +14,9 @@ export interface Fiche {
   date: string;
   /** Texte du cours d'origine (OCR ou extraction PDF). */
   sourceContenu: string;
+  /** Matières vivantes : traduction française + vocabulaire. */
+  traduction: string;
+  vocabulaire: { mot: string; fr: string }[];
   /** Cours d'origine conservés dans le bucket privé « cours » (1 PDF, ou N photos). */
   fichiers: FichierCours[];
 }
@@ -36,6 +39,7 @@ interface Row {
   points_cles?: string[]; quiz?: QuizRow[]; created_at?: string;
   chapitre_id?: string | null; chapitres?: { titre?: string } | null;
   fichiers?: FichierCours[] | null; source_contenu?: string | null;
+  traduction?: string | null; vocabulaire?: { mot: string; fr: string }[] | null;
 }
 
 function mapRow(r: Row): Fiche {
@@ -50,6 +54,8 @@ function mapRow(r: Row): Fiche {
     quiz: (r.quiz || []).map((q) => ({ q: q.Q ?? q.q ?? '', r: q.R ?? q.r ?? '' })),
     date: r.created_at || new Date().toISOString(),
     sourceContenu: r.source_contenu || '',
+    traduction: r.traduction || '',
+    vocabulaire: Array.isArray(r.vocabulaire) ? r.vocabulaire : [],
     fichiers: Array.isArray(r.fichiers) ? r.fichiers : [],
   };
 }
@@ -77,6 +83,8 @@ export async function saveFiche(f: Omit<Fiche, 'id' | 'date'>): Promise<Fiche> {
     chapitre_id: f.chapitreId || null,
     fichiers: f.fichiers || [],
     source_contenu: f.sourceContenu || null,
+    traduction: f.traduction || null,
+    vocabulaire: f.vocabulaire || [],
     // user_id est posé par la base via default auth.uid() quand la session est authentifiée
   };
   const res = await fetch(TABLE, { method: 'POST', headers: headers(token), body: JSON.stringify(body) });

@@ -89,6 +89,19 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
             <button id="modeRev" type="button" class="btn-doux text-xs">🎯 Mode révision</button>
           </div>
           <div id="fResume" class="mb-2"></div>
+
+          <!-- matières vivantes : traduction française du cours -->
+          <section id="blocTrad" class="hidden mt-6">
+            <h3 class="font-bold text-brand mb-2 pb-1 border-b border-slate-800">🇫🇷 Traduction du cours</h3>
+            <div id="fTraduction"></div>
+          </section>
+
+          <!-- matières vivantes : vocabulaire traduit -->
+          <section id="blocVocab" class="hidden mt-6">
+            <h3 class="font-bold text-brand mb-2 pb-1 border-b border-slate-800">📖 Vocabulaire</h3>
+            <div id="fVocab" class="grid sm:grid-cols-2 gap-2"></div>
+          </section>
+
           <h3 class="font-bold text-brand mt-6 mb-2 pb-1 border-b border-slate-800">Points clés</h3>
           <ul id="fPoints" class="space-y-1.5 text-sm text-slate-200 mb-2 md:grid md:grid-cols-2 md:gap-x-6 md:space-y-0 md:gap-y-1.5"></ul>
           <h3 class="font-bold text-brand mt-6 mb-1 pb-1 border-b border-slate-800">Quiz de contrôle</h3>
@@ -456,6 +469,21 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         }
         document.getElementById('fTitre')!.textContent = fiche.titre;
         document.getElementById('fResume')!.innerHTML = resumeHTML(fiche.resume);
+
+        // Matières vivantes : traduction du cours + vocabulaire
+        const trad = fiche.traduction || '';
+        const vocab = fiche.vocabulaire || [];
+        document.getElementById('blocTrad')!.classList.toggle('hidden', !trad);
+        if (trad) document.getElementById('fTraduction')!.innerHTML = resumeHTML(trad);
+        document.getElementById('blocVocab')!.classList.toggle('hidden', !vocab.length);
+        if (vocab.length) {
+          document.getElementById('fVocab')!.innerHTML = vocab.map((v) =>
+            `<div class="flex items-baseline gap-2 bg-slate-950 rounded-lg px-3 py-2 text-sm">
+               <span class="font-semibold text-white">${esc(v.mot)}</span>
+               <span class="text-slate-600">→</span>
+               <span class="text-emerald-300">${esc(v.fr)}</span>
+             </div>`).join('');
+        }
         document.getElementById('fPoints')!.innerHTML = fiche.pointsCles
           .map((p) => `<li class="leading-relaxed pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('');
         document.getElementById('fQuiz')!.innerHTML = fiche.quiz.map((q) => `
