@@ -28,6 +28,7 @@ import { lien } from '../lib/url';
     <!-- ---------- actions ---------- -->
     <section class="flex flex-wrap gap-2 mb-6 print-hide">
       <a id="ajouter" href={lien('/fiche')} class="btn-principal">📷 Ajouter un cours</a>
+      <button id="exporter" type="button" class="btn-doux">📄 Résumé du chapitre</button>
       <button id="imprimer" type="button" class="btn-doux">🖨️ Imprimer / PDF</button>
       <button id="modeRev" type="button" class="btn-doux">🎯 Mode révision</button>
       <button id="supprimer" type="button" class="btn-doux text-rose-300">🗑 Supprimer le chapitre</button>
@@ -40,6 +41,15 @@ import { lien } from '../lib/url';
       <button data-onglet="pdf" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📄 PDF scannés</button>
     </nav>
 
+    <section id="resumeExport" class="hidden mb-6">
+      <h2 class="font-bold text-brand mb-2">📄 Fiche de révision complète — ${nom}</h2>
+      <div id="resumeExportContent" class="carte p-5"></div>
+      <div class="flex gap-2 mt-3 print-hide">
+        <button id="printExport" type="button" class="btn-principal text-xs">🖨️ Imprimer / PDF</button>
+        <button id="fermerExport" type="button" class="btn-doux text-xs">Fermer</button>
+      </div>
+    </section>
+
     <section id="voletCours" class="space-y-3"></section>
     <section id="voletFiches" class="hidden space-y-4"></section>
     <section id="voletPdf" class="hidden space-y-2"></section>
@@ -47,7 +57,8 @@ import { lien } from '../lib/url';
 
   <script>
     import { getChapitre, renommerChapitre, supprimerChapitre } from '../lib/chapitres';
-    import { getFiches, type Fiche } from '../lib/fiches';
+    import { getFiches, updateFiche, type Fiche } from '../lib/fiches';
+    import { resumeChapitre } from '../lib/ai';
     import { getControles, enregistrerControle, scoreMoyen, type Controle } from '../lib/controles';
     import { lienCours } from '../lib/storage';
     import { isLoggedIn } from '../lib/auth';
@@ -109,8 +120,11 @@ import { lien } from '../lib/url';
       // --- Fiches ---
       vFiches.innerHTML = fiches.length
         ? fiches.map((f) => `
-            <details class="carte overflow-hidden">
-              <summary class="px-4 py-3 font-bold text-sm cursor-pointer">${esc(f.titre)} <span class="text-xs text-slate-500 font-normal">· ${dateFr(f.date)}</span></summary>
+            <details class="carte overflow-hidden" data-fiche="${f.id}">
+              <summary class="px-4 py-3 font-bold text-sm cursor-pointer">
+                ${esc(f.titre)} <span class="text-xs text-slate-500 font-normal">· ${dateFr(f.date)}</span>
+                <button data-edit="${f.id}" type="button" class="ml-2 text-[10px] text-slate-500 hover:text-brand print-hide" onclick="event.stopPropagation()">✏️ Modifier</button>
+              </summary>
               <div class="px-4 pb-4">
                 <div data-resume class="${revision ? 'hidden' : ''}">${resumeHTML(f.resume)}</div>
                 ${f.traduction ? `<details class="mt-3 rounded-xl bg-slate-950 ring-1 ring-slate-800"><summary class="px-3 py-2 text-xs font-semibold text-brand cursor-pointer">🇫🇷 Traduction du cours</summary><div class="px-3 pb-3">${resumeHTML(f.traduction)}</div></details>` : ''}
@@ -122,6 +136,17 @@ import { lien } from '../lib/url';
                   ${dernierDe(f.id) ? `<span class="pastille bg-slate-800 text-slate-300">Dernier : ${dernierDe(f.id)!.score}/${dernierDe(f.id)!.total}</span>` : '<span class="text-[11px] text-slate-500">jamais fait</span>'}
                 </div>` : ''}
                 <div data-quizzone="${f.id}" class="hidden mt-3"></div>
+                <div data-editzone="${f.id}" class="hidden mt-3 bg-slate-950 rounded-xl p-3 ring-1 ring-slate-800">
+                  <label class="block text-xs font-bold text-slate-500 mb-1">Titre</label>
+                  <input data-etitre="${f.id}" value="${esc(f.titre)}" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm mb-2" />
+                  <label class="block text-xs font-bold text-slate-500 mb-1">Résumé</label>
+                  <textarea data-eresume="${f.id}" rows="8" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm mb-2 font-mono text-xs leading-relaxed">${esc(f.resume)}</textarea>
+                  <div class="flex items-center gap-2">
+                    <button data-esave="${f.id}" class="btn-principal text-xs">💾 Enregistrer</button>
+                    <button data-ecancel="${f.id}" class="btn-doux text-xs">Annuler</button>
+                    <span data-emsg="${f.id}" class="text-xs text-slate-500"></span>
+                  </div>
+                </div>
               </div>
             </details>`).join('')
         : vide('Aucune fiche de révision. Ajoute un cours, l\'IA la génère.');
@@ -261,6 +286,71 @@ import { lien } from '../lib/url';
 
     document.querySelectorAll('#onglets [data-onglet]').forEach((b) =>
       b.addEventListener('click', () => onglet((b as HTMLElement).dataset.onglet!)));
+
+    // Édition de fiche
+    vFiches.addEventListener('click', async (e) => {
+      const tgt = e.target as HTMLElement;
+      // Ouvrir l'éditeur
+      if (tgt.dataset.edit) {
+        e.stopPropagation();
+        const fid = tgt.dataset.edit;
+        const zone = vFiches.querySelector(`[data-editzone="${fid}"]`) as HTMLElement;
+        if (zone) { zone.classList.toggle('hidden'); zone.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+        return;
+      }
+      // Annuler
+      if (tgt.dataset.ecancel) {
+        e.stopPropagation();
+        const fid = tgt.dataset.ecancel;
+        vFiches.querySelector(`[data-editzone="${fid}"]`)?.classList.add('hidden');
+        return;
+      }
+      // Enregistrer
+      if (tgt.dataset.esave) {
+        e.stopPropagation();
+        const fid = tgt.dataset.esave;
+        const titreIn = vFiches.querySelector(`[data-etitre="${fid}"]`) as HTMLInputElement;
+        const resumeIn = vFiches.querySelector(`[data-eresume="${fid}"]`) as HTMLTextAreaElement;
+        const msgEl = vFiches.querySelector(`[data-emsg="${fid}"]`)!;
+        if (!titreIn || !resumeIn) return;
+        msgEl.textContent = '💾 Enregistrement…';
+        const ok = await updateFiche(fid, { titre: titreIn.value, resume: resumeIn.value });
+        if (ok) {
+          msgEl.textContent = '✅ Enregistré.';
+          // Met à jour l'affichage
+          const f = fiches.find((x) => x.id === fid);
+          if (f) { f.titre = titreIn.value; f.resume = resumeIn.value; }
+          const card = vFiches.querySelector(`details[data-fiche="${fid}"]`);
+          if (card) { card.querySelector('summary')!.innerHTML = `${esc(titreIn.value)} <span class="text-xs text-slate-500 font-normal">· modifié</span> <button data-edit="${fid}" type="button" class="ml-2 text-[10px] text-slate-500 hover:text-brand print-hide" onclick="event.stopPropagation()">✏️ Modifier</button>`; }
+          setTimeout(() => { vFiches.querySelector(`[data-editzone="${fid}"]`)?.classList.add('hidden'); msgEl.textContent = ''; }, 1200);
+        } else {
+          msgEl.textContent = '❌ Échec.';
+        }
+      }
+    });
+
+    // Export : résumé complet du chapitre par l'IA
+    document.getElementById('exporter')?.addEventListener('click', async () => {
+      if (!fiches.length) { alert('Aucune fiche dans ce chapitre.'); return; }
+      const section = document.getElementById('resumeExport')!;
+      const content = document.getElementById('resumeExportContent')!;
+      section.classList.remove('hidden');
+      content.innerHTML = '<p class="text-sm text-slate-400">⏳ L\'IA synthétise toutes les fiches du chapitre… (~30 s)</p>';
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      try {
+        const coursTextes = fiches.filter((f) => f.sourceContenu).map((f) => f.sourceContenu);
+        const ficheTextes = fiches.map((f) => `Titre : ${f.titre}\nRésumé : ${f.resume}\nPoints clés : ${f.pointsCles.join(', ')}`);
+        const synthese = await resumeChapitre(matiere, titreEl.textContent || '', coursTextes, ficheTextes);
+        content.innerHTML = `<h3 class="font-bold text-lg mb-2">${esc(synthese.titre)}</h3><div>${resumeHTML(synthese.resume)}</div>` +
+          (synthese.pointsCles.length ? `<h4 class="font-bold text-brand mt-4 mb-1">Points clés</h4><ul class="space-y-1 text-sm">${synthese.pointsCles.map((p) => `<li class="pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('')}</ul>` : '') +
+          (synthese.quiz.length ? `<h4 class="font-bold text-brand mt-4 mb-2">Quiz</h4><div class="space-y-2">${synthese.quiz.map((q) => `<details class="bg-slate-950 rounded-xl p-3"><summary class="text-sm font-medium cursor-pointer">${esc(q.q)}</summary><p class="text-sm text-emerald-300 mt-2">${esc(q.r)}</p></details>`).join('')}</div>` : '');
+      } catch (err: any) {
+        content.innerHTML = `<p class="text-sm text-rose-400">❌ ${esc(err.message)}</p>`;
+      }
+    });
+
+    document.getElementById('printExport')?.addEventListener('click', () => window.print());
+    document.getElementById('fermerExport')?.addEventListener('click', () => document.getElementById('resumeExport')?.classList.add('hidden'));
 
     if (!isLoggedIn()) window.location.href = lien('/login');
     else { onglet('cours'); charger(); }

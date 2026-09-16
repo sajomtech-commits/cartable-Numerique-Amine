@@ -102,3 +102,20 @@ export async function deleteFiche(id: string): Promise<void> {
 export async function fichesParMatiere(matiere: string): Promise<Fiche[]> {
   return (await getFiches()).filter((f) => f.matiere === matiere);
 }
+
+/** Met à jour le titre et/ou le résumé d'une fiche. */
+export async function updateFiche(id: string, patch: { titre?: string; resume?: string }): Promise<boolean> {
+  const token = await validToken();
+  if (!token) return false;
+  const body: Record<string, string> = {};
+  if (patch.titre !== undefined) body.titre = patch.titre;
+  if (patch.resume !== undefined) body.resume = patch.resume;
+  if (!Object.keys(body).length) return false;
+  const res = await fetch(`${TABLE}?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: headers(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return false;
+  try { const r = await res.json(); return Array.isArray(r) && r.length > 0; } catch { return false; }
+}

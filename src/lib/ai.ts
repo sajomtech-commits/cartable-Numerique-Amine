@@ -66,6 +66,20 @@ export async function genererFiche(texte: string, matiere: string): Promise<Fich
   };
 }
 
+/** Résumé complet d'un chapitre (fusion de tous les cours + fiches). */
+export async function resumeChapitre(matiere: string, titre: string, cours: string[], fichesTextes: string[]): Promise<Fiche> {
+  const j = await post('/resume-chapitre', { matiere, titre, cours, fiches: fichesTextes }, 240000);
+  if (j.error) throw new Error(j.error);
+  return {
+    titre: j.titre || titre,
+    resume: j.resume || '',
+    pointsCles: Array.isArray(j.pointsCles) ? j.pointsCles : [],
+    quiz: Array.isArray(j.quiz) ? j.quiz : [],
+    traduction: typeof j.traduction === 'string' ? j.traduction : '',
+    vocabulaire: Array.isArray(j.vocabulaire) ? j.vocabulaire : [],
+  };
+}
+
 /** OCR d'une seule page (image base64) — utilisé par la prise de photo, page par page. */
 export async function ocrImage(image: string): Promise<string> {
   const j = await post('/ocr', { images: [image] }, 180000);

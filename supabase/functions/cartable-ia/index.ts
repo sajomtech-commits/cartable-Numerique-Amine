@@ -182,6 +182,51 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ texte: texte.trim() }), { headers: { ...CORS, 'Content-Type': 'application/json' } });
     }
 
+    if (route === '/resume-chapitre') {
+      const { matiere = 'Divers', titre = '', cours = [], fiches = [] } = body;
+      if (!cours.length && !fiches.length) {
+        return new Response(JSON.stringify({ error: 'aucun contenu fourni' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+      const estL = estLangue(matiere);
+      const prompt = `Tu es un professeur qui prépare une fiche de révision COMPLÈTE et SYNTHÉTIQUE pour un contrôle.
+Matière : ${matiere}
+Chapitre : ${titre}
+
+Voici le contenu de ce chapitre (plusieurs cours et fiches de révision fusionnés) :
+
+${cours.map((c: string, i: number) => `=== COURS ${i + 1} ===\n${c.slice(0, 12000)}`).join('\n\n')}
+${fiches.map((f: string, i: number) => `=== FICHE ${i + 1} ===\n${f.slice(0, 6000)}`).join('\n\n')}
+
+Produis UNE SEULE fiche de révision complète au format JSON pur, sans texte avant/après :
+${estL ? JSON_FICHE_LANGUE : JSON_FICHE}
+
+RÈGLES :
+- C'est la FICHE ULTIME du chapitre : elle doit synthétiser TOUT le contenu sans répéter.
+- Fusionne les informations identiques, élimine les doublons, garde l'essentiel.
+- Le "resume" doit faire 6 à 10 sections, claires et aérées.
+- ${estL ? '"traduction" : traduction fidèle de tout le chapitre en français.' : ''}
+- ${estL ? '"vocabulaire" : 15 à 25 mots clés traduits.' : '"pointsCles" : 10 à 12 points essentiels.'}
+- "quiz" : 6 à 8 questions de contrôle variées et représentatives du chapitre.`;
+
+      const msgs: any[] = [
+        { role: 'system', content: 'Tu réponds toujours en JSON pur, sans balise markdown.' },
+        { role: 'user', content: prompt },
+      ];
+      let fiche: any = null;
+      let derreur = '';
+      for (let essai = 0; essai < 2 && !fiche; essai++) {
+        let raw = await callIA(msgs, 8000);
+        raw = raw.replace(/```json|```/g, '').trim();
+        const first = raw.indexOf('{'), last = raw.lastIndexOf('}');
+        if (first >= 0 && last > first) raw = raw.slice(first, last + 1);
+        try { fiche = parseTolerant(raw); } catch (e) { derreur = String((e as Error).message || e); }
+      }
+      if (!fiche) {
+        return new Response(JSON.stringify({ error: 'JSON invalide après 2 essais : ' + derreur.slice(0, 160) }), { status: 502, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+      return new Response(JSON.stringify(fiche), { headers: { ...CORS, 'Content-Type': 'application/json' } });
+    }
+
     return new Response(JSON.stringify({ error: 'route inconnue', route }), { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error('[cartable-ia] erreur :', String((e as Error)?.message || e).slice(0, 300));
