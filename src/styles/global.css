@@ -29,6 +29,12 @@
   .titre-section { @apply text-sm font-bold uppercase tracking-wider text-slate-400; }
 }
 
+/* ---------- onglets repliables (details) ---------- */
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary .chevron { display: inline-block; transition: transform .2s ease; }
+details[open] > summary .chevron { transform: rotate(90deg); }
+
 /* ---------- impression / export PDF : fond clair, sans l'interface ---------- */
 @media print {
   .print-hide, nav, header { display: none !important; }

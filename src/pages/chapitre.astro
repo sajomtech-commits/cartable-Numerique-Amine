@@ -330,6 +330,31 @@ import { lien } from '../lib/url';
     });
 
     // Export : résumé complet du chapitre par l'IA
+    /** Découpe un résumé markdown en fiches repliables (une par section ##). */
+    function resumeEnFiches(markdown: string): string {
+      const sections: { titre: string; corps: string[] }[] = [];
+      let actuelle: { titre: string; corps: string[] } | null = null;
+      for (const ligne of String(markdown || '').split('\n')) {
+        const m = ligne.match(/^#{2,3}\s+(.*)$/);
+        if (m) {
+          actuelle = { titre: m[1].trim(), corps: [] };
+          sections.push(actuelle);
+        } else if (actuelle) actuelle.corps.push(ligne);
+        else if (ligne.trim()) {
+          if (!actuelle) sections.push({ titre: '', corps: [ligne] });
+        }
+      }
+      if (!sections.length) return `<div>${resumeHTML(markdown)}</div>`;
+      return sections.map((s, i) => `
+        <details class="carte overflow-hidden" ${i === 0 ? 'open' : ''}>
+          <summary class="px-4 py-3 text-sm font-bold cursor-pointer flex items-center gap-2">
+            <span class="chevron text-brand text-xs">▸</span>
+            <span>${esc(s.titre || 'Introduction')}</span>
+          </summary>
+          <div class="px-4 pb-4 border-t border-slate-800 pt-2 text-sm leading-relaxed">${resumeHTML(s.corps.join('\n'))}</div>
+        </details>`).join('');
+    }
+
     document.getElementById('exporter')?.addEventListener('click', async () => {
       if (!fiches.length) { alert('Aucune fiche dans ce chapitre.'); return; }
       const section = document.getElementById('resumeExport')!;
@@ -341,9 +366,20 @@ import { lien } from '../lib/url';
         const coursTextes = fiches.filter((f) => f.sourceContenu).map((f) => f.sourceContenu);
         const ficheTextes = fiches.map((f) => `Titre : ${f.titre}\nRésumé : ${f.resume}\nPoints clés : ${f.pointsCles.join(', ')}`);
         const synthese = await resumeChapitre(matiere, titreEl.textContent || '', coursTextes, ficheTextes);
-        content.innerHTML = `<h3 class="font-bold text-lg mb-2">${esc(synthese.titre)}</h3><div>${resumeHTML(synthese.resume)}</div>` +
-          (synthese.pointsCles.length ? `<h4 class="font-bold text-brand mt-4 mb-1">Points clés</h4><ul class="space-y-1 text-sm">${synthese.pointsCles.map((p) => `<li class="pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('')}</ul>` : '') +
-          (synthese.quiz.length ? `<h4 class="font-bold text-brand mt-4 mb-2">Quiz</h4><div class="space-y-2">${synthese.quiz.map((q) => `<details class="bg-slate-950 rounded-xl p-3"><summary class="text-sm font-medium cursor-pointer">${esc(q.q)}</summary><p class="text-sm text-emerald-300 mt-2">${esc(q.r)}</p></details>`).join('')}</div>` : '');
+        content.innerHTML = `<h3 class="font-bold text-lg mb-3">${esc(synthese.titre)}</h3>
+          <div class="space-y-2">${resumeEnFiches(synthese.resume)}</div>
+          ${synthese.pointsCles.length ? `<details class="carte overflow-hidden mt-3">
+            <summary class="px-4 py-3 text-sm font-bold cursor-pointer flex items-center gap-2">
+              <span class="chevron text-brand text-xs">▸</span>💡 Points clés <span class="pastille bg-brand/20 text-brand">${synthese.pointsCles.length}</span>
+            </summary>
+            <div class="px-4 pb-4 border-t border-slate-800 pt-2"><ul class="space-y-1.5 text-sm">${synthese.pointsCles.map((p) => `<li class="leading-relaxed pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('')}</ul></div>
+          </details>` : ''}
+          ${synthese.quiz.length ? `<details class="carte overflow-hidden mt-3">
+            <summary class="px-4 py-3 text-sm font-bold cursor-pointer flex items-center gap-2">
+              <span class="chevron text-brand text-xs">▸</span>❓ Quiz <span class="pastille bg-brand/20 text-brand">${synthese.quiz.length}</span>
+            </summary>
+            <div class="px-4 pb-4 border-t border-slate-800 pt-2 space-y-2">${synthese.quiz.map((q) => `<details class="bg-slate-950 rounded-xl p-3"><summary class="text-sm font-medium cursor-pointer">${esc(q.q)}</summary><p class="text-sm text-emerald-300 mt-2">${esc(q.r)}</p></details>`).join('')}</div>
+          </details>` : ''}`;
       } catch (err: any) {
         content.innerHTML = `<p class="text-sm text-rose-400">❌ ${esc(err.message)}</p>`;
       }
