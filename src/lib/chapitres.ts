@@ -6,6 +6,8 @@ export interface Chapitre {
   titre: string;
   numero: number | null;
   perso: boolean;
+  /** Nom de la matière (renseigné par getChapitre). */
+  matiere?: string;
 }
 
 const URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
@@ -80,6 +82,20 @@ export async function getChapitres(matiere: string): Promise<Chapitre[]> {
   } catch {
     return [];
   }
+}
+
+/** Récupère un chapitre par son identifiant (page dédiée au chapitre). */
+export async function getChapitre(id: string): Promise<Chapitre | null> {
+  const token = await validToken();
+  if (!token || !id) return null;
+  try {
+    const res = await fetch(`${TABLE}?select=id,titre,numero,matiere,user_id&id=eq.${encodeURIComponent(id)}&limit=1`, { headers: entetes(token) });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    if (!Array.isArray(rows) || !rows.length) return null;
+    const r = rows[0];
+    return { id: r.id, titre: r.titre, numero: r.numero ?? null, perso: !!r.user_id, matiere: r.matiere };
+  } catch { return null; }
 }
 
 /** Crée un chapitre personnel. Si un chapitre du même nom existe déjà, il est renvoyé. */

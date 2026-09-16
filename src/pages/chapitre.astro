@@ -1,0 +1,189 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Barre from '../components/Barre.astro';
+import { lien } from '../lib/url';
+---
+<Layout title="Chapitre — Cartable Amine">
+  <main class="max-w-5xl mx-auto px-5 md:px-8 py-6 md:py-10" id="page" data-id="">
+    <Barre libelle="Matière" />
+
+    <!-- ---------- en-tête ---------- -->
+    <header class="mb-6">
+      <a id="lienMatiere" href={lien('/')} class="pastille bg-slate-800 text-slate-400 hover:text-white mb-2">📖 matière</a>
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 id="titre" class="text-3xl md:text-4xl font-extrabold tracking-tight">Chargement…</h1>
+        <button id="renommer" type="button" title="Renommer" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 print-hide">✏️</button>
+      </div>
+      <p id="resumeChap" class="text-slate-400 text-sm mt-1"></p>
+    </header>
+
+    <!-- ---------- chiffres clés ---------- -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+      <div class="carte p-4"><p class="text-xs font-medium text-slate-500">Cours</p><p id="sCours" class="mt-1 text-2xl font-extrabold tabular-nums">–</p></div>
+      <div class="carte p-4"><p class="text-xs font-medium text-slate-500">Fiches</p><p id="sFiches" class="mt-1 text-2xl font-extrabold tabular-nums">–</p></div>
+      <div class="carte p-4"><p class="text-xs font-medium text-slate-500">PDF scannés</p><p id="sPdf" class="mt-1 text-2xl font-extrabold tabular-nums">–</p></div>
+      <div class="carte p-4"><p class="text-xs font-medium text-slate-500">Questions</p><p id="sQuiz" class="mt-1 text-2xl font-extrabold tabular-nums">–</p></div>
+    </section>
+
+    <!-- ---------- actions ---------- -->
+    <section class="flex flex-wrap gap-2 mb-6 print-hide">
+      <a id="ajouter" href={lien('/fiche')} class="btn-principal">📷 Ajouter un cours</a>
+      <button id="imprimer" type="button" class="btn-doux">🖨️ Imprimer / PDF</button>
+      <button id="modeRev" type="button" class="btn-doux">🎯 Mode révision</button>
+      <button id="supprimer" type="button" class="btn-doux text-rose-300">🗑 Supprimer le chapitre</button>
+    </section>
+
+    <!-- ---------- onglets ---------- -->
+    <nav id="onglets" class="flex gap-1 p-1 rounded-2xl bg-slate-900 ring-1 ring-slate-800 mb-5 print-hide">
+      <button data-onglet="cours" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📖 Cours</button>
+      <button data-onglet="fiches" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📝 Fiches de révision</button>
+      <button data-onglet="pdf" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📄 PDF scannés</button>
+    </nav>
+
+    <section id="voletCours" class="space-y-3"></section>
+    <section id="voletFiches" class="hidden space-y-4"></section>
+    <section id="voletPdf" class="hidden space-y-2"></section>
+  </main>
+
+  <script>
+    import { getChapitre, renommerChapitre, supprimerChapitre } from '../lib/chapitres';
+    import { getFiches, type Fiche } from '../lib/fiches';
+    import { lienCours } from '../lib/storage';
+    import { isLoggedIn } from '../lib/auth';
+    import { resumeHTML, esc } from '../lib/rendu';
+    import { lien } from '../lib/url';
+
+    const page = document.getElementById('page')!;
+    const id = new URLSearchParams(location.search).get('id') || '';
+    page.dataset.id = id;
+
+    const titreEl = document.getElementById('titre')!;
+    const resumeEl = document.getElementById('resumeChap')!;
+    const vCours = document.getElementById('voletCours')!;
+    const vFiches = document.getElementById('voletFiches')!;
+    const vPdf = document.getElementById('voletPdf')!;
+    const set = (i: string, v: number | string) => { const e = document.getElementById(i); if (e) e.textContent = String(v); };
+
+    let matiere = '';
+    let revision = false;
+    let fiches: Fiche[] = [];
+
+    const vide = (txt: string) => `<p class="carte-douce p-6 text-center text-sm text-slate-400">${txt}</p>`;
+    const dateFr = (d: string) => new Date(d).toLocaleDateString('fr-FR');
+
+    /** Affiche l'onglet demandé. */
+    function onglet(nom: string) {
+      const volets: Record<string, HTMLElement> = { cours: vCours, fiches: vFiches, pdf: vPdf };
+      Object.entries(volets).forEach(([k, el]) => el.classList.toggle('hidden', k !== nom));
+      document.querySelectorAll('#onglets [data-onglet]').forEach((b) => {
+        const actif = (b as HTMLElement).dataset.onglet === nom;
+        b.className = `flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition ${actif ? 'bg-brand text-white shadow' : 'text-slate-400 hover:text-white'}`;
+      });
+    }
+
+    function rendre() {
+      const cours = fiches.filter((f) => f.sourceContenu);
+      const pdfs = fiches.flatMap((f) => (f.fichiers || []).map((x) => ({ ...x, fiche: f.titre })));
+      const questions = fiches.reduce((n, f) => n + f.quiz.length, 0);
+
+      set('sCours', cours.length);
+      set('sFiches', fiches.length);
+      set('sPdf', pdfs.length);
+      set('sQuiz', questions);
+      resumeEl.textContent = `${fiches.length} fiche${fiches.length > 1 ? 's' : ''}${pdfs.length ? ' · ' + pdfs.length + ' PDF' : ''}${questions ? ' · ' + questions + ' questions' : ''}`;
+
+      // --- Cours ---
+      vCours.innerHTML = cours.length
+        ? cours.map((f) => `
+            <details class="carte overflow-hidden" ${cours.length === 1 ? 'open' : ''}>
+              <summary class="px-4 py-3 text-sm font-semibold cursor-pointer">📖 ${esc(f.titre)} <span class="text-xs text-slate-500 font-normal">· ${dateFr(f.date)}</span></summary>
+              <div class="px-4 pb-4"><pre class="text-xs leading-relaxed text-slate-300 whitespace-pre-wrap max-h-[28rem] overflow-auto">${esc(f.sourceContenu)}</pre></div>
+            </details>`).join('')
+        : vide('Aucun cours pour ce chapitre. Clique sur « 📷 Ajouter un cours ».');
+
+      // --- Fiches ---
+      vFiches.innerHTML = fiches.length
+        ? fiches.map((f) => `
+            <details class="carte overflow-hidden">
+              <summary class="px-4 py-3 font-bold text-sm cursor-pointer">${esc(f.titre)} <span class="text-xs text-slate-500 font-normal">· ${dateFr(f.date)}</span></summary>
+              <div class="px-4 pb-4">
+                <div data-resume class="${revision ? 'hidden' : ''}">${resumeHTML(f.resume)}</div>
+                ${f.traduction ? `<details class="mt-3 rounded-xl bg-slate-950 ring-1 ring-slate-800"><summary class="px-3 py-2 text-xs font-semibold text-brand cursor-pointer">🇫🇷 Traduction du cours</summary><div class="px-3 pb-3">${resumeHTML(f.traduction)}</div></details>` : ''}
+                ${(f.vocabulaire || []).length ? `<details class="mt-2 rounded-xl bg-slate-950 ring-1 ring-slate-800"><summary class="px-3 py-2 text-xs font-semibold text-brand cursor-pointer">📖 Vocabulaire (${f.vocabulaire.length})</summary><div class="px-3 pb-3 grid sm:grid-cols-2 gap-1.5 text-xs">${f.vocabulaire.map((v) => `<div><b class="text-white">${esc(v.mot)}</b> <span class="text-slate-500">→</span> <span class="text-emerald-300">${esc(v.fr)}</span></div>`).join('')}</div></details>` : ''}
+                ${f.pointsCles.length ? `<div data-resume class="${revision ? 'hidden' : ''}"><p class="text-xs font-bold text-brand mt-4 mb-1">Points clés</p><ul class="space-y-1.5 text-sm text-slate-200">${f.pointsCles.map((p) => `<li class="leading-relaxed pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('')}</ul></div>` : ''}
+                ${f.quiz.length ? `<p class="text-xs font-bold text-brand mt-4 mb-2">Quiz</p><div class="space-y-2">${f.quiz.map((q) => `<details class="bg-slate-950 rounded-xl p-3"><summary class="text-sm font-medium cursor-pointer">${esc(q.q)}</summary><p class="text-sm text-emerald-300 mt-2">${esc(q.r)}</p></details>`).join('')}</div>` : ''}
+              </div>
+            </details>`).join('')
+        : vide('Aucune fiche de révision. Ajoute un cours, l\'IA la génère.');
+
+      // --- PDF ---
+      vPdf.innerHTML = pdfs.length
+        ? pdfs.map((x) => `<a data-path="${esc(x.path)}" href="#"
+             class="carte p-4 flex items-center gap-3 hover:ring-brand/40 transition">
+             <span class="grid place-items-center w-10 h-10 rounded-xl bg-slate-800 text-lg shrink-0">${x.type === 'photo' ? '🖼️' : '📄'}</span>
+             <span class="min-w-0 flex-1">
+               <span class="block text-sm font-semibold truncate">${esc(x.nom)}</span>
+               <span class="block text-[11px] text-slate-500 truncate">${esc(x.fiche)} · ${Math.round((x.taille || 0) / 1024)} Ko</span>
+             </span>
+             <span class="text-slate-500 shrink-0">↗</span>
+           </a>`).join('')
+        : vide('Aucun PDF conservé pour ce chapitre.');
+
+      vPdf.querySelectorAll('[data-path]').forEach((a) => {
+        lienCours((a as HTMLElement).dataset.path!, 3600, true).then((u) => {
+          if (u) { (a as HTMLAnchorElement).href = u; (a as HTMLAnchorElement).target = '_blank'; (a as HTMLAnchorElement).rel = 'noopener'; }
+        });
+      });
+    }
+
+    async function charger() {
+      const chap = await getChapitre(id);
+      if (!chap) {
+        titreEl.textContent = 'Chapitre introuvable';
+        resumeEl.textContent = 'Il a peut-être été supprimé.';
+        [vCours, vFiches, vPdf].forEach((v) => (v.innerHTML = ''));
+        return;
+      }
+      matiere = chap.matiere || '';
+      titreEl.textContent = chap.titre;
+      document.title = chap.titre + ' — Cartable Amine';
+      const a = document.getElementById('lienMatiere') as HTMLAnchorElement;
+      a.textContent = '📖 ' + (matiere || 'matière');
+      a.href = lien('/matieres/' + (matiere || '').toLowerCase());
+      (document.getElementById('ajouter') as HTMLAnchorElement).href =
+        `${lien('/fiche')}?matiere=${encodeURIComponent(matiere)}&chapitre=${encodeURIComponent(chap.titre)}`;
+
+      fiches = (await getFiches()).filter((f) => f.chapitreId === chap.id);
+      rendre();
+    }
+
+    // Actions
+    document.getElementById('renommer')?.addEventListener('click', async () => {
+      const nouveau = prompt('Nouveau nom du chapitre :', titreEl.textContent || '');
+      if (nouveau === null || !nouveau.trim() || nouveau.trim() === titreEl.textContent) return;
+      if (await renommerChapitre(id, nouveau)) { titreEl.textContent = nouveau.trim(); document.title = nouveau.trim(); }
+      else alert('❌ Renommage impossible.');
+    });
+
+    document.getElementById('supprimer')?.addEventListener('click', async () => {
+      if (!confirm('Supprimer ce chapitre ? Les fiches liées seront conservées (sans chapitre).')) return;
+      if (await supprimerChapitre(id)) { location.href = lien('/'); }
+      else alert('❌ Suppression impossible.');
+    });
+
+    document.getElementById('imprimer')?.addEventListener('click', () => window.print());
+
+    const modeRev = document.getElementById('modeRev') as HTMLButtonElement;
+    modeRev?.addEventListener('click', () => {
+      revision = !revision;
+      document.querySelectorAll('[data-resume]').forEach((e) => e.classList.toggle('hidden', revision));
+      modeRev.textContent = revision ? '📖 Afficher le cours' : '🎯 Mode révision';
+    });
+
+    document.querySelectorAll('#onglets [data-onglet]').forEach((b) =>
+      b.addEventListener('click', () => onglet((b as HTMLElement).dataset.onglet!)));
+
+    if (!isLoggedIn()) window.location.href = lien('/login');
+    else { onglet('cours'); charger(); }
+  </script>
+</Layout>
