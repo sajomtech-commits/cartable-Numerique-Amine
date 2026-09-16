@@ -73,7 +73,8 @@ export async function deleteAudio(id: string): Promise<boolean> {
   } catch { return false; }
 }
 
-/** Lien signé temporaire de lecture (bucket privé « audio »). */
+/** Lien de lecture d'un audio (bucket privé « audio ») : playlist via blob URL,
+ *  car Kong exige l'en-tête apikey que <audio> ne peut pas envoyer. */
 export async function audioUrl(path: string): Promise<string | null> {
   const token = await validToken();
   if (!token || !path) return null;
@@ -85,6 +86,11 @@ export async function audioUrl(path: string): Promise<string | null> {
     });
     if (!res.ok) return null;
     const j = await res.json();
-    return j?.signedURL ? `${URL}/storage/v1${j.signedURL}` : null;
+    const signed = j?.signedURL ? `${URL}/storage/v1${j.signedURL}` : null;
+    if (!signed) return null;
+    const resp = await fetch(signed, { headers: { apikey: KEY } });
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    return URL.createObjectURL(blob);
   } catch { return null; }
 }
