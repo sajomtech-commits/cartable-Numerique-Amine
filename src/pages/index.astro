@@ -68,7 +68,7 @@ import { MATIERES } from '../lib/matieres';
     </section>
 
     <!-- ---------- actions rapides ---------- -->
-    <section class="grid sm:grid-cols-2 gap-3 md:gap-4 mb-8">
+    <section class="grid sm:grid-cols-3 gap-3 md:gap-4 mb-8">
       <a href={lien('/fiche')} class="carte p-5 flex items-center gap-4 hover:ring-brand/40 transition">
         <span class="grid place-items-center w-12 h-12 rounded-2xl bg-brand text-2xl shadow-lg shrink-0">📷</span>
         <span>
@@ -81,6 +81,13 @@ import { MATIERES } from '../lib/matieres';
         <span>
           <span class="block font-bold">Réviser</span>
           <span class="block text-xs text-slate-400">Tes fiches et leurs quiz</span>
+        </span>
+      </a>
+      <a href={lien('/cours')} class="carte p-5 flex items-center gap-4 hover:ring-brand/40 transition">
+        <span class="grid place-items-center w-12 h-12 rounded-2xl bg-slate-800 text-2xl shrink-0">📄</span>
+        <span>
+          <span class="block font-bold">Mes cours</span>
+          <span class="block text-xs text-slate-400">Tous tes PDF rangés</span>
         </span>
       </a>
     </section>

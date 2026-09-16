@@ -1,0 +1,129 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Barre from '../components/Barre.astro';
+---
+<Layout title="Mes cours — Cartable Amine">
+  <main class="max-w-5xl mx-auto px-5 md:px-8 py-6 md:py-10">
+    <Barre libelle="Accueil" />
+
+    <header class="mb-5">
+      <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">📄 Mes cours</h1>
+      <p id="entete" class="text-slate-400 text-sm mt-1">Tous tes documents rangés par matière et par chapitre.</p>
+    </header>
+
+    <div id="filtres" class="flex flex-wrap gap-2 mb-5"></div>
+    <div id="liste" class="space-y-4"></div>
+  </main>
+
+  <script>
+    import { getFiches, type Fiche } from '../lib/fiches';
+    import { lienCours } from '../lib/storage';
+    import { isLoggedIn } from '../lib/auth';
+    import { esc } from '../lib/rendu';
+    import { lien } from '../lib/url';
+    import { MATIERES } from '../lib/matieres';
+
+    interface Doc {
+      path: string; nom: string; type: string; taille: number;
+      fiche: string; chapitre: string; matiere: string; date: string;
+    }
+
+    const liste = document.getElementById('liste')!;
+    const filtres = document.getElementById('filtres')!;
+    const entete = document.getElementById('entete')!;
+
+    let docs: Doc[] = [];
+    let filtre = '';
+
+    const ko = (n: number) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' Mo' : Math.max(1, Math.round(n / 1024)) + ' Ko');
+    const icone = (nom: string) => MATIERES.find((m) => m.nom === nom)?.icon || '📖';
+    const dateFr = (d: string) => new Date(d).toLocaleDateString('fr-FR');
+
+    /** Un groupe matière → chapitres → documents. */
+    function rendre() {
+      const visibles = filtre ? docs.filter((d) => d.matiere === filtre) : docs;
+      const octets = visibles.reduce((n, d) => n + (d.taille || 0), 0);
+      entete.textContent = docs.length
+        ? `${visibles.length} document${visibles.length > 1 ? 's' : ''} · ${ko(octets)}`
+        : 'Aucun document pour l’instant.';
+
+      if (!visibles.length) {
+        liste.innerHTML = '<p class="carte-douce p-8 text-center text-sm text-slate-400">Aucun cours rangé.<br /><span class="text-xs">Scanne un cours depuis une matière pour le voir apparaître ici.</span></p>';
+        return;
+      }
+
+      // matière → chapitre → docs
+      const parMatiere = new Map<string, Map<string, Doc[]>>();
+      visibles.forEach((d) => {
+        if (!parMatiere.has(d.matiere)) parMatiere.set(d.matiere, new Map());
+        const chaps = parMatiere.get(d.matiere)!;
+        if (!chaps.has(d.chapitre)) chaps.set(d.chapitre, []);
+        chaps.get(d.chapitre)!.push(d);
+      });
+
+      liste.innerHTML = [...parMatiere.entries()].map(([mat, chaps]) => {
+        const n = [...chaps.values()].reduce((a, b) => a + b.length, 0);
+        const corps = [...chaps.entries()].map(([chap, items]) => `
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">📚 ${esc(chap)}</p>
+            <div class="space-y-2">${items.map((d) => `
+              <a data-path="${esc(d.path)}" href="#"
+                 class="flex items-center gap-3 bg-slate-950/70 ring-1 ring-slate-800 rounded-xl px-3 py-2.5 hover:ring-brand/40 transition">
+                <span class="grid place-items-center w-9 h-9 rounded-lg bg-slate-800 text-base shrink-0">${d.type === 'photo' ? '🖼️' : '📄'}</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-medium truncate">${esc(d.nom)}</span>
+                  <span class="block text-[11px] text-slate-500 truncate">${esc(d.fiche)} · ${dateFr(d.date)}</span>
+                </span>
+                <span class="text-[11px] text-slate-500 shrink-0">${ko(d.taille)}</span>
+                <span class="text-slate-500 shrink-0">↗</span>
+              </a>`).join('')}</div>
+          </div>`).join('');
+
+        return `<details class="carte overflow-hidden" open>
+          <summary class="px-4 py-3 cursor-pointer flex items-center gap-2">
+            <span class="text-lg">${icone(mat)}</span>
+            <span class="font-bold text-sm">${esc(mat)}</span>
+            <span class="ml-auto text-[11px] text-slate-500 font-normal">${n} document${n > 1 ? 's' : ''}</span>
+          </summary>
+          <div class="px-4 pb-4 space-y-4 border-t border-slate-800 pt-4">${corps}</div>
+        </details>`;
+      }).join('');
+
+      // liens signés (bucket privé)
+      liste.querySelectorAll('[data-path]').forEach((a) => {
+        lienCours((a as HTMLElement).dataset.path!, 3600, true).then((u) => {
+          if (u) { (a as HTMLAnchorElement).href = u; (a as HTMLAnchorElement).target = '_blank'; (a as HTMLAnchorElement).rel = 'noopener'; }
+        });
+      });
+    }
+
+    function majFiltres() {
+      const mats = [...new Set(docs.map((d) => d.matiere))].sort((a, b) => a.localeCompare(b, 'fr'));
+      if (mats.length < 2) { filtres.innerHTML = ''; return; }
+      const puce = (val: string, texte: string) =>
+        `<button data-mat="${esc(val)}" class="pastille transition ${filtre === val ? 'bg-brand text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}">${texte}</button>`;
+      filtres.innerHTML = puce('', `Tout (${docs.length})`) +
+        mats.map((m) => puce(m, `${icone(m)} ${esc(m)} (${docs.filter((d) => d.matiere === m).length})`)).join('');
+      filtres.querySelectorAll('[data-mat]').forEach((b) => b.addEventListener('click', () => {
+        filtre = (b as HTMLElement).dataset.mat || '';
+        majFiltres();
+        rendre();
+      }));
+    }
+
+    if (!isLoggedIn()) {
+      liste.innerHTML = `<p class="carte-douce p-8 text-center text-sm text-slate-400">🔒 <a class="text-brand hover:underline" href="${lien('/login')}">Connecte-toi</a> pour voir tes cours.</p>`;
+    } else {
+      const fiches = await getFiches();
+      docs = fiches.flatMap((f: Fiche) =>
+        (f.fichiers || []).map((x) => ({
+          path: x.path, nom: x.nom, type: x.type, taille: x.taille || 0,
+          fiche: f.titre, chapitre: f.chapitre || 'Sans chapitre',
+          matiere: f.matiere || 'Divers', date: f.date,
+        }))
+      );
+      majFiltres();
+      rendre();
+    }
+  </script>
+</Layout>
