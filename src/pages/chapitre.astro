@@ -25,21 +25,23 @@ import { lien } from '../lib/url';
       <div class="carte p-4"><p class="text-xs font-medium text-slate-500">Questions</p><p id="sQuiz" class="mt-1 text-2xl font-extrabold tabular-nums">–</p></div>
     </section>
 
-    <!-- ---------- actions ---------- -->
-    <section class="flex flex-wrap gap-2 mb-6 print-hide">
-      <a id="ajouter" href={lien('/fiche')} class="btn-principal">📷 Ajouter un cours</a>
-      <button id="imprimer" type="button" class="btn-doux">🖨️ Imprimer / PDF</button>
-      <button id="modeRev" type="button" class="btn-doux">🎯 Mode révision</button>
-      <button id="supprimer" type="button" class="btn-doux text-rose-300">🗑 Supprimer le chapitre</button>
+    <!-- ---------- actions (compactes) ---------- -->
+    <section class="flex flex-wrap gap-1.5 mb-4 print-hide">
+      <a id="ajouter" href={lien('/fiche')} class="btn-principal !px-3 !py-1.5 !text-xs">📷 Ajouter un cours</a>
+      <button id="imprimer" type="button" class="btn-doux !px-3 !py-1.5 !text-xs">🖨️ PDF</button>
+      <button id="modeRev" type="button" class="btn-doux !px-3 !py-1.5 !text-xs">🎯 Révision</button>
+      <button id="supprimer" type="button" class="btn-doux !px-3 !py-1.5 !text-xs text-rose-300">🗑 Supprimer</button>
     </section>
 
-    <!-- ---------- onglets ---------- -->
-    <nav id="onglets" class="flex gap-1 p-1 rounded-2xl bg-slate-900 ring-1 ring-slate-800 mb-5 print-hide">
-      <button data-onglet="cours" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📖 Cours</button>
-      <button data-onglet="fiches" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📝 Fiches de révision</button>
-      <button data-onglet="pdf" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📄 PDF scannés</button>
-      <button data-onglet="syntheses" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📄 Résumés<span id="nbSyn" class="ml-1 text-[10px] pastille bg-slate-800 text-slate-400"></span></button>
-      <button data-onglet="audio" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">🔊 Audio<span id="nbAudio" class="ml-1 text-[10px] pastille bg-slate-800 text-slate-400"></span></button>
+    <!-- ---------- onglets (défilement horizontal sur mobile) ---------- -->
+    <nav id="onglets" class="-mx-5 px-5 md:mx-0 md:px-0 mb-5 print-hide">
+      <div class="flex gap-1 p-1 rounded-2xl bg-slate-900 ring-1 ring-slate-800 overflow-x-auto whitespace-nowrap">
+        <button data-onglet="cours" class="onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition">📖 Cours</button>
+        <button data-onglet="fiches" class="onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition">📝 Fiches</button>
+        <button data-onglet="pdf" class="onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition">📄 PDF</button>
+        <button data-onglet="syntheses" class="onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition">📄 Résumés<span id="nbSyn" class="ml-1 text-[10px] pastille bg-slate-800 text-slate-400"></span></button>
+        <button data-onglet="audio" class="onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition">🔊 Audio<span id="nbAudio" class="ml-1 text-[10px] pastille bg-slate-800 text-slate-400"></span></button>
+      </div>
     </nav>
 
     <!-- ---------- résumés de chapitre (générés à la demande, archivés) ---------- -->
@@ -108,6 +110,7 @@ import { lien } from '../lib/url';
     import { getControles, enregistrerControle, scoreMoyen, type Controle } from '../lib/controles';
     import { lienCours } from '../lib/storage';
     import { isLoggedIn, userID } from '../lib/auth';
+    import { brancherLecteur, signalerLecture } from '../lib/player';
     import { resumeHTML, esc } from '../lib/rendu';
     import { lien } from '../lib/url';
 
@@ -142,7 +145,7 @@ import { lien } from '../lib/url';
       Object.entries(volets).forEach(([k, el]) => el.classList.toggle('hidden', k !== nom));
       document.querySelectorAll('#onglets [data-onglet]').forEach((b) => {
         const actif = (b as HTMLElement).dataset.onglet === nom;
-        b.className = `flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition ${actif ? 'bg-brand text-white shadow' : 'text-slate-400 hover:text-white'}`;
+        b.className = `onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition ${actif ? 'bg-brand text-white shadow' : 'text-slate-400 hover:text-white'}`;
       });
     }
 
@@ -518,8 +521,13 @@ import { lien } from '../lib/url';
         </div>`).join('');
       listeAudio.querySelectorAll('audio[data-src]').forEach((au) => {
         const msgEl = document.getElementById('audio-msg-' + (au as HTMLElement).dataset.audioMsg) as HTMLElement | null;
+        const titre = audios.find((x) => x.path === (au as HTMLElement).dataset.src)?.titre || 'Révision audio';
         audioUrl((au as HTMLElement).dataset.src || '').then((u) => {
-          if (u && au instanceof HTMLAudioElement) { au.src = u; au.type = 'audio/mpeg'; au.load(); }
+          if (u && au instanceof HTMLAudioElement) {
+            au.src = u; au.type = 'audio/mpeg'; au.load();
+            brancherLecteur(au, titre, (au as HTMLElement).dataset.src || '');
+            au.addEventListener('play', () => signalerLecture((au as HTMLElement).dataset.src || '', titre));
+          }
           else if (msgEl) { msgEl.textContent = '❌ Impossible de charger cet audio (réessaie).'; msgEl.classList.remove('hidden'); }
         });
       });

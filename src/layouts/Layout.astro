@@ -23,5 +23,10 @@ const { title = "Cartable Numérique — Amine", nav = true } = Astro.props;
 <body class="min-h-screen flex flex-col bg-slate-950 text-slate-50">
   {nav && <Nav />}
   <div class="flex-1 pb-24 md:pb-0"><slot /></div>
+  <script>
+    import { proposerReprise } from '../lib/player';
+    // Sur chaque page : proposer de reprendre la dernière révision audio en cours.
+    proposerReprise();
+  </script>
 </body>
 </html>
