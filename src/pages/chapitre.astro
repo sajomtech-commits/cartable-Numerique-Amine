@@ -110,7 +110,8 @@ import { lien } from '../lib/url';
     import { getControles, enregistrerControle, scoreMoyen, type Controle } from '../lib/controles';
     import { lienCours } from '../lib/storage';
     import { isLoggedIn, userID } from '../lib/auth';
-    import { brancherLecteur, signalerLecture } from '../lib/player';
+    import { brancherLecteur } from '../lib/player';
+    import { demanderTexte } from '../lib/demandeur';
     import { resumeHTML, esc } from '../lib/rendu';
     import { lien } from '../lib/url';
 
@@ -320,7 +321,7 @@ import { lien } from '../lib/url';
 
     // Actions
     document.getElementById('renommer')?.addEventListener('click', async () => {
-      const nouveau = prompt('Nouveau nom du chapitre :', titreEl.textContent || '');
+      const nouveau = await demanderTexte('Nouveau nom du chapitre', titreEl.textContent || '');
       if (nouveau === null || !nouveau.trim() || nouveau.trim() === titreEl.textContent) return;
       if (await renommerChapitre(id, nouveau)) { titreEl.textContent = nouveau.trim(); document.title = nouveau.trim(); }
       else alert('❌ Renommage impossible.');
@@ -526,7 +527,6 @@ import { lien } from '../lib/url';
           if (u && au instanceof HTMLAudioElement) {
             au.src = u; au.type = 'audio/mpeg'; au.load();
             brancherLecteur(au, titre, (au as HTMLElement).dataset.src || '');
-            au.addEventListener('play', () => signalerLecture((au as HTMLElement).dataset.src || '', titre));
           }
           else if (msgEl) { msgEl.textContent = '❌ Impossible de charger cet audio (réessaie).'; msgEl.classList.remove('hidden'); }
         });

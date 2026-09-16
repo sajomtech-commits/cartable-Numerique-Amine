@@ -1,74 +1,100 @@
-// Lecteur audio persistant : contrôles sur l'écran de verrouillage (Media Session)
-// + reprise automatique à la dernière position (localStorage), sur n'importe quelle page.
+// Lecteur audio persistant : barre flottante AVEC contrôles (▶/⏸, progression),
+// contrôles sur l'écran de verrouillage (Media Session), reprise à la position
+// sauvegardée sur n'importe quelle page.
 import { audioUrl } from './audios';
 
 const CLE = 'cartable_audio_play'; // {path, titre, time}
+interface Marqueur { path: string; titre: string; time: number; }
 
-function lireMarker(): { path: string; titre: string; time: number } | null {
-  try { return JSON.parse(localStorage.getItem(CLE) || 'null'); }
-  catch { return null; }
+function lireMarker(): Marqueur | null {
+  try { return JSON.parse(localStorage.getItem(CLE) || 'null'); } catch { return null; }
 }
+function ecrire(m: Marqueur) { try { localStorage.setItem(CLE, JSON.stringify(m)); } catch { } }
+export function effacerLecture() { try { localStorage.removeItem(CLE); } catch { } }
 
-function ecrire(pos: { path: string; titre: string; time: number }) {
-  try { localStorage.setItem(CLE, JSON.stringify(pos)); } catch { }
-}
+const fmt = (s: number) => (isFinite(s) ? Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0') : '0:00');
 
-export function effacerLecture() {
-  try { localStorage.removeItem(CLE); } catch { }
-}
+let barre: HTMLElement | null = null;
+let courant: HTMLAudioElement | null = null;
 
-/** Enregistre les contrôles de l'écran de verrouillage + mémorise la position. */
-export function brancherLecteur(au: HTMLAudioElement, titre: string, path: string) {
-  const update = () => {
-    if (!au.paused && !au.ended) ecrire({ path, titre, time: au.currentTime });
-  };
-  au.addEventListener('timeupdate', () => { if (Math.random() < 0.2) update(); });
-  au.addEventListener('pause', () => { /* on garde la position pour reprise */ });
-  au.addEventListener('ended', () => effacerLecture());
-
-  // Media Session : titre + boutons sur l'écran de verrouillage
-  if ('mediaSession' in navigator) {
+function mediaSession(au: HTMLAudioElement, titre: string) {
+  if (!('mediaSession' in navigator)) return;
+  try {
     const ms = navigator.mediaSession;
-    ms.metadata = new MediaMetadata({ title: 'Révision audio', artist: 'Cartable d\'Amine', album: titre });
-    const sync = () => {
-      ms.playbackState = au.paused ? 'paused' : 'playing';
-    };
-    try {
-      ms.setActionHandler('play', () => { au.play().then(sync).catch(() => {}); });
-      ms.setActionHandler('pause', () => { au.pause(); sync(); });
-      ms.setActionHandler('seekto', (d) => { if (d.seekTime != null) au.currentTime = d.seekTime; });
-    } catch { /* non supporté */ }
+    ms.metadata = new MediaMetadata({ title: titre, artist: 'Cartable d\'Amine', album: 'Révision audio' });
+    ms.setActionHandler('play', () => au.play().catch(() => {}));
+    ms.setActionHandler('pause', () => au.pause());
+    ms.setActionHandler('seekto', (d) => { if (d.seekTime != null) au.currentTime = d.seekTime; });
+    const sync = () => { ms.playbackState = au.paused ? 'paused' : 'playing'; };
     au.addEventListener('play', sync);
     au.addEventListener('pause', sync);
     au.addEventListener('ended', sync);
-  }
+  } catch { /* non supporté */ }
 }
 
-/** Petit mini-player flottant pour reprendre la lecture sur n'importe quelle page. */
-export function proposerReprise() {
+/** Construit (ou met à jour) la barre flottante liée à l'élément audio donné. */
+function construireBarre(au: HTMLAudioElement, titre: string) {
+  courant = au;
+  if (barre) barre.remove();
+  const b = document.createElement('div');
+  b.className = 'fixed bottom-16 md:bottom-4 inset-x-3 z-50 carte p-3 shadow-2xl';
+  b.innerHTML = `
+    <div class="flex items-center gap-2">
+      <button data-play class="btn-principal !px-3 !py-1.5 text-sm shrink-0">▶</button>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-bold truncate">🎙️ <span data-t></span></p>
+        <input data-seek type="range" min="0" max="0" value="0" step="1" class="w-full h-1.5 accent-brand" />
+        <p class="text-[10px] text-slate-500"><span data-cur>0:00</span> / <span data-dur>0:00</span></p>
+      </div>
+      <button data-close class="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 shrink-0">✕</button>
+    </div>`;
+  document.body.appendChild(b);
+  const btn = b.querySelector('[data-play]') as HTMLButtonElement;
+  const seek = b.querySelector('[data-seek]') as HTMLInputElement;
+  const cur = b.querySelector('[data-cur]')!;
+  const dur = b.querySelector('[data-dur]')!;
+  b.querySelector('[data-t]')!.textContent = titre;
+
+  const maj = () => {
+    btn.textContent = au.paused ? '▶' : '⏸';
+    if (isFinite(au.duration)) { seek.max = String(au.duration); dur.textContent = fmt(au.duration); } else { dur.textContent = fmt(au.currentTime); }
+    seek.value = String(au.currentTime);
+    cur.textContent = fmt(au.currentTime);
+    ecrire({ path: (au as any).__path || '', titre: titre, time: au.currentTime });
+  };
+
+  btn.addEventListener('click', () => { if (au.paused) au.play().catch(() => {}); else au.pause(); });
+  seek.addEventListener('input', () => { au.currentTime = Number(seek.value); });
+  b.querySelector('[data-close]')!.addEventListener('click', () => { au.pause(); effacerLecture(); barre?.remove(); barre = null; });
+
+  au.addEventListener('timeupdate', maj);
+  au.addEventListener('play', maj);
+  au.addEventListener('pause', maj);
+  au.addEventListener('ended', () => effacerLecture());
+  au.addEventListener('ended', () => { barre?.remove(); barre = null; });
+  barre = b;
+  maj();
+}
+
+/** À brancher sur chaque <audio> natif du site (page chapitre). */
+export function brancherLecteur(au: HTMLAudioElement, titre: string, path: string) {
+  (au as any).__path = path;
+  mediaSession(au, titre);
+  // Dès qu'on le lit, la barre flottante prend le relais (utile si on change d'onglet).
+  au.addEventListener('play', () => construireBarre(au, titre));
+}
+
+/** Sur toute page : propose de reprendre la dernière lecture en cours. */
+export async function proposerReprise() {
   const m = lireMarker();
-  if (!m) return;
-  const barre = document.createElement('div');
-  barre.className = 'fixed bottom-16 md:bottom-4 inset-x-3 z-50 carte p-3 flex items-center gap-2 shadow-2xl bg-slate-900';
-  barre.innerHTML = `
-    <button data-act class="btn-principal !px-3 !py-1.5 text-sm">▶ Reprendre</button>
-    <span class="text-xs text-slate-300 truncate flex-1">🎙️ ${/* titre */ ''}<span data-t></span></span>
-    <button data-x class="w-7 h-7 rounded-lg bg-slate-800 text-slate-400">✕</button>`;
-  barre.querySelector('[data-t]')!.textContent = m.titre;
-  document.body.appendChild(barre);
-  const retirer = () => barre.remove();
-  barre.querySelector('[data-x]')!.addEventListener('click', () => { retirer(); effacerLecture(); });
-  barre.querySelector('[data-act]')!.addEventListener('click', async () => {
-    retirer();
-    const u = await audioUrl(m.path);
-    if (!u) return;
-    const au = new Audio(u);
-    brancherLecteur(au, m.titre, m.path);
-    try { au.currentTime = m.time; await au.play(); } catch { /* autoplay refusé */ }
-  });
-}
-
-/** Enregistre une lecture en cours pour reprise possible. */
-export function signalerLecture(path: string, titre: string) {
-  ecrire({ path, titre, time: 0 });
+  if (!m || !m.path) return;
+  const u = await audioUrl(m.path);
+  if (!u) return;
+  const audio = new Audio();
+  audio.src = u; audio.type = 'audio/mpeg'; audio.preload = 'auto';
+  (audio as any).__path = m.path;
+  audio.currentTime = m.time;
+  construireBarre(audio, m.titre);
+  mediaSession(audio, m.titre);
+  audio.play().catch(() => { /* autoplay bloqué : l'utilisateur clique ▶ */ });
 }
