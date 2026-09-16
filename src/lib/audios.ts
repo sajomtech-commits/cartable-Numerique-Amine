@@ -11,9 +11,9 @@ export interface AudioRev {
   date: string;
 }
 
-const URL = (import.meta.env.PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+const BASE = (import.meta.env.PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
 const KEY = import.meta.env.PUBLIC_SUPABASE_KEY || '';
-const TABLE = `${URL}/rest/v1/audios`;
+const TABLE = `${BASE}/rest/v1/audios`;
 
 function entetes(token: string): HeadersInit {
   return {
@@ -79,14 +79,14 @@ export async function audioUrl(path: string): Promise<string | null> {
   const token = await validToken();
   if (!token || !path) return null;
   try {
-    const res = await fetch(`${URL}/storage/v1/object/sign/audio/${path}`, {
+    const res = await fetch(`${BASE}/storage/v1/object/sign/audio/${path}`, {
       method: 'POST',
       headers: { apikey: KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ expiresIn: 3600 }),
     });
     if (!res.ok) return null;
     const j = await res.json();
-    const signed = j?.signedURL ? `${URL}/storage/v1${j.signedURL}` : null;
+    const signed = j?.signedURL ? `${BASE}/storage/v1${j.signedURL}` : null;
     if (!signed) return null;
     const resp = await fetch(signed, { headers: { apikey: KEY } });
     if (!resp.ok) return null;
