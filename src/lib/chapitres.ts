@@ -84,6 +84,27 @@ export async function getChapitres(matiere: string): Promise<Chapitre[]> {
   }
 }
 
+/** Tous les chapitres, toutes matières (recherche globale). */
+export async function getTousChapitres(): Promise<Chapitre[]> {
+  const token = await validToken();
+  if (!token) return [];
+  try {
+    const res = await fetch(
+      `${TABLE}?select=id,titre,numero,matiere,user_id&order=matiere.asc,numero.asc.nullslast,created_at.asc&limit=500`,
+      { headers: entetes(token) }
+    );
+    if (!res.ok) return [];
+    const rows = await res.json();
+    return (rows as any[]).map((r) => ({
+      id: r.id,
+      titre: r.titre,
+      numero: r.numero ?? null,
+      perso: !!r.user_id,
+      matiere: r.matiere,
+    }));
+  } catch { return []; }
+}
+
 /** Récupère un chapitre par son identifiant (page dédiée au chapitre). */
 export async function getChapitre(id: string): Promise<Chapitre | null> {
   const token = await validToken();

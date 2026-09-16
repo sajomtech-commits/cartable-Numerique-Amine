@@ -1,0 +1,177 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Barre from '../components/Barre.astro';
+import { lien } from '../lib/url';
+---
+<Layout title="Recherche — Cartable Amine">
+  <main class="max-w-5xl mx-auto px-5 md:px-8 py-6 md:py-10">
+    <Barre libelle="Accueil" />
+
+    <header class="mb-5">
+      <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">🔎 Recherche</h1>
+      <p class="text-slate-400 text-sm mt-1">Cherche dans tes cours, fiches, résumés, vocabulaire et chapitres.</p>
+    </header>
+
+    <div class="sticky top-0 md:top-16 z-20 -mx-5 px-5 md:mx-0 md:px-0 py-3 bg-slate-950/85 backdrop-blur mb-4">
+      <div class="relative">
+        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔎</span>
+        <input id="q" type="search" autocomplete="off" placeholder="Ex. vecteurs, révolution industrielle, Théo, photosynthesis…"
+               class="w-full bg-slate-900 border border-slate-700 rounded-2xl pl-11 pr-11 py-3 text-sm focus:outline-none focus:border-brand" />
+        <button id="effacer" type="button" class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400">✕</button>
+      </div>
+    </div>
+
+    <p id="compte" class="text-xs text-slate-500 mb-4"></p>
+    <div id="resultats" class="space-y-6"></div>
+  </main>
+
+  <script>
+    import { getFiches, type Fiche } from '../lib/fiches';
+    import { getTousChapitres, type Chapitre } from '../lib/chapitres';
+    import { isLoggedIn } from '../lib/auth';
+    import { esc } from '../lib/rendu';
+    import { lien } from '../lib/url';
+    import { MATIERES } from '../lib/matieres';
+
+    const champ = document.getElementById('q') as HTMLInputElement;
+    const effacer = document.getElementById('effacer')!;
+    const resEl = document.getElementById('resultats')!;
+    const compte = document.getElementById('compte')!;
+
+    let fiches: Fiche[] = [];
+    let chapitres: Chapitre[] = [];
+
+    /** Minuscules sans accents, pour comparer sans se soucier de la typographie. */
+    const norm = (s: string) =>
+      String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    const iconeMatiere = (nom: string) => MATIERES.find((m) => m.nom === nom)?.icon || '📖';
+
+    /** Texte complet d'une fiche (tout ce dans quoi on cherche). */
+    function blob(f: Fiche): string {
+      return [
+        f.titre, f.matiere, f.chapitre || '',
+        f.resume, f.traduction || '',
+        ...(f.pointsCles || []),
+        ...(f.quiz || []).flatMap((q) => [q.q, q.r]),
+        ...((f.vocabulaire || []).flatMap((v) => [v.mot, v.fr])),
+        f.sourceContenu || '',
+      ].join(' \n ');
+    }
+
+    /** Extrait de texte autour du premier mot trouvé. */
+    function extrait(texte: string, mots: string[]): string {
+      const plat = texte.replace(/\s+/g, ' ').trim();
+      const bas = norm(plat);
+      let pos = -1;
+      for (const m of mots) { const p = bas.indexOf(m); if (p >= 0 && (pos < 0 || p < pos)) pos = p; }
+      if (pos < 0) return plat.slice(0, 140);
+      const debut = Math.max(0, pos - 45);
+      const fin = Math.min(plat.length, pos + 95);
+      return (debut > 0 ? '…' : '') + plat.slice(debut, fin) + (fin < plat.length ? '…' : '');
+    }
+
+    /** Met en évidence les mots trouvés (en échappant d'abord le HTML). */
+    function surligne(texte: string, mots: string[]): string {
+      let html = esc(texte);
+      for (const m of mots) {
+        if (m.length < 2) continue;
+        try {
+          html = html.replace(new RegExp('(' + m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<mark class="bg-brand/30 text-white rounded px-0.5">$1</mark>');
+        } catch { /* motif invalide : on ignore */ }
+      }
+      return html;
+    }
+
+    function chercher() {
+      const brut = champ.value.trim();
+      effacer.classList.toggle('hidden', !brut);
+      const mots = norm(brut).split(/\s+/).filter((m) => m.length > 1);
+      if (!mots.length) {
+        compte.textContent = '';
+        resEl.innerHTML = fiches.length
+          ? '<p class="carte-douce p-6 text-center text-sm text-slate-400">Tape un mot pour lancer la recherche.</p>'
+          : '';
+        return;
+      }
+
+      // --- fiches ---
+      const fTrouvees = fiches
+        .map((f) => ({ f, b: norm(blob(f)) }))
+        .filter(({ b }) => mots.every((m) => b.includes(m)))
+        .map(({ f, b }) => ({ f, b }));
+
+      // --- chapitres ---
+      const cTrouves = chapitres.filter((c) => {
+        const b = norm(`${c.titre} ${c.matiere || ''}`);
+        return mots.every((m) => b.includes(m));
+      });
+
+      compte.textContent = (fTrouvees.length + cTrouves.length)
+        ? `${fTrouvees.length} fiche${fTrouvees.length > 1 ? 's' : ''} · ${cTrouves.length} chapitre${cTrouves.length > 1 ? 's' : ''}`
+        : '';
+
+      if (!fTrouvees.length && !cTrouves.length) {
+        resEl.innerHTML = `<p class="carte-douce p-8 text-center text-sm text-slate-400">Aucun résultat pour « ${esc(brut)} ».<br /><span class="text-xs">Essaie un mot plus court, ou sans accents.</span></p>`;
+        return;
+      }
+
+      let html = '';
+
+      if (cTrouves.length) {
+        html += `<section>
+          <h2 class="titre-section mb-3">📚 Chapitres (${cTrouves.length})</h2>
+          <div class="space-y-2">${cTrouves.map((c) => `
+            <a href="${lien('/chapitre')}?id=${c.id}" class="carte px-4 py-3 flex items-center gap-3 hover:ring-brand/40 transition">
+              <span class="text-lg">${iconeMatiere(c.matiere || '')}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-semibold truncate">${surligne(c.titre, mots)}</span>
+                <span class="block text-[11px] text-slate-500">${esc(c.matiere || '')}${c.numero ? ' · n° ' + c.numero : ''}</span>
+              </span>
+              <span class="text-slate-500 shrink-0">›</span>
+            </a>`).join('')}</div>
+        </section>`;
+      }
+
+      if (fTrouvees.length) {
+        html += `<section>
+          <h2 class="titre-section mb-3">📝 Fiches (${fTrouvees.length})</h2>
+          <div class="space-y-2">${fTrouvees.map(({ f, b }) => {
+            const cible = f.chapitreId ? `${lien('/chapitre')}?id=${f.chapitreId}` : lien('/revisions');
+            const vocab = (f.vocabulaire || []).find((v) => mots.every((m) => norm(v.mot + ' ' + v.fr).includes(m)));
+            return `<a href="${cible}" class="carte p-4 block hover:ring-brand/40 transition">
+              <span class="flex items-center gap-2 mb-1">
+                <span class="text-base">${iconeMatiere(f.matiere)}</span>
+                <span class="text-sm font-bold truncate">${surligne(f.titre, mots)}</span>
+                <span class="ml-auto text-[11px] text-slate-500 shrink-0">${esc(f.matiere)}${f.chapitre ? ' · ' + esc(f.chapitre) : ''}</span>
+              </span>
+              <span class="block text-xs text-slate-400 leading-relaxed">${surligne(extrait(b, mots), mots)}</span>
+              ${vocab ? `<span class="block text-xs mt-1.5 text-slate-400">📖 <b class="text-white">${surligne(vocab.mot, mots)}</b> → <span class="text-emerald-300">${surligne(vocab.fr, mots)}</span></span>` : ''}
+            </a>`;
+          }).join('')}</div>
+        </section>`;
+      }
+
+      resEl.innerHTML = html;
+    }
+
+    let minuteur: number | undefined;
+    champ.addEventListener('input', () => {
+      window.clearTimeout(minuteur);
+      minuteur = window.setTimeout(chercher, 180);
+    });
+    effacer.addEventListener('click', () => { champ.value = ''; champ.focus(); chercher(); });
+
+    // pré-remplit depuis l'URL
+    const qParam = new URLSearchParams(location.search).get('q');
+    if (qParam) champ.value = qParam;
+
+    if (!isLoggedIn()) {
+      resEl.innerHTML = `<p class="carte-douce p-8 text-center text-sm text-slate-400">🔒 <a class="text-brand hover:underline" href="${lien('/login')}">Connecte-toi</a> pour chercher dans tes fiches.</p>`;
+    } else {
+      [fiches, chapitres] = await Promise.all([getFiches(), getTousChapitres()]);
+      champ.focus();
+      chercher();
+    }
+  </script>
+</Layout>
