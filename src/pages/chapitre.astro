@@ -28,7 +28,6 @@ import { lien } from '../lib/url';
     <!-- ---------- actions ---------- -->
     <section class="flex flex-wrap gap-2 mb-6 print-hide">
       <a id="ajouter" href={lien('/fiche')} class="btn-principal">📷 Ajouter un cours</a>
-      <button id="exporter" type="button" class="btn-doux">📄 Résumé du chapitre</button>
       <button id="imprimer" type="button" class="btn-doux">🖨️ Imprimer / PDF</button>
       <button id="modeRev" type="button" class="btn-doux">🎯 Mode révision</button>
       <button id="supprimer" type="button" class="btn-doux text-rose-300">🗑 Supprimer le chapitre</button>
@@ -39,15 +38,31 @@ import { lien } from '../lib/url';
       <button data-onglet="cours" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📖 Cours</button>
       <button data-onglet="fiches" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📝 Fiches de révision</button>
       <button data-onglet="pdf" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📄 PDF scannés</button>
+      <button data-onglet="syntheses" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📄 Résumés<span id="nbSyn" class="ml-1 text-[10px] pastille bg-slate-800 text-slate-400"></span></button>
     </nav>
 
-    <section id="resumeExport" class="hidden mb-6">
-      <h2 class="font-bold text-brand mb-2">📄 Fiche de révision complète du chapitre</h2>
-      <div id="resumeExportContent" class="carte p-5"></div>
-      <div class="flex gap-2 mt-3 print-hide">
-        <button id="printExport" type="button" class="btn-principal text-xs">🖨️ Imprimer / PDF</button>
-        <button id="fermerExport" type="button" class="btn-doux text-xs">Fermer</button>
+    <!-- ---------- résumés de chapitre (générés à la demande, archivés) ---------- -->
+    <section id="voletSyntheses" class="hidden space-y-4">
+      <div class="flex flex-wrap items-center gap-3 print-hide">
+        <button id="btnGenerer" type="button" class="btn-principal">➕ Générer un résumé</button>
+        <p class="text-[11px] text-slate-500">👉 Le résumé n'est jamais automatique : tu choisis les cours et tu lances la génération toi-même.</p>
       </div>
+
+      <div id="panelGenerer" class="hidden carte p-4 space-y-3">
+        <p class="text-sm font-semibold">📋 Choisis les cours à résumer <span class="text-[11px] font-normal text-slate-500">(2–3 recommandés)</span></p>
+        <div id="listeCours" class="space-y-2 max-h-56 overflow-auto"></div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 mb-1">Titre du résumé</label>
+          <input id="titreSyn" type="text" placeholder="Ex. Résumé pour le contrôle de jeudi" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="lanGenerer" type="button" class="btn-principal">✨ Générer le résumé</button>
+          <button id="annulerGenerer" type="button" class="btn-doux">Annuler</button>
+          <span id="msgGenerer" class="text-xs text-slate-400"></span>
+        </div>
+      </div>
+
+      <div id="listeSyntheses" class="space-y-2"></div>
     </section>
 
     <section id="voletCours" class="space-y-3"></section>
@@ -59,6 +74,7 @@ import { lien } from '../lib/url';
     import { getChapitre, renommerChapitre, supprimerChapitre } from '../lib/chapitres';
     import { getFiches, updateFiche, type Fiche } from '../lib/fiches';
     import { resumeChapitre } from '../lib/ai';
+    import { getSyntheses, saveSynthese, deleteSynthese, type Synthese } from '../lib/syntheses';
     import { getControles, enregistrerControle, scoreMoyen, type Controle } from '../lib/controles';
     import { lienCours } from '../lib/storage';
     import { isLoggedIn } from '../lib/auth';
@@ -74,6 +90,8 @@ import { lien } from '../lib/url';
     const vCours = document.getElementById('voletCours')!;
     const vFiches = document.getElementById('voletFiches')!;
     const vPdf = document.getElementById('voletPdf')!;
+    const vSyn = document.getElementById('voletSyntheses')!;
+    const listeSyn = document.getElementById('listeSyntheses')!;
     const set = (i: string, v: number | string) => { const e = document.getElementById(i); if (e) e.textContent = String(v); };
 
     let matiere = '';
@@ -88,7 +106,7 @@ import { lien } from '../lib/url';
 
     /** Affiche l'onglet demandé. */
     function onglet(nom: string) {
-      const volets: Record<string, HTMLElement> = { cours: vCours, fiches: vFiches, pdf: vPdf };
+      const volets: Record<string, HTMLElement> = { cours: vCours, fiches: vFiches, pdf: vPdf, syntheses: vSyn };
       Object.entries(volets).forEach(([k, el]) => el.classList.toggle('hidden', k !== nom));
       document.querySelectorAll('#onglets [data-onglet]').forEach((b) => {
         const actif = (b as HTMLElement).dataset.onglet === nom;
@@ -258,6 +276,8 @@ import { lien } from '../lib/url';
       fiches = (await getFiches()).filter((f) => f.chapitreId === chap.id);
       const ids = new Set(fiches.map((f) => f.id));
       controles = (await getControles()).filter((c) => c.ficheId && ids.has(c.ficheId));
+      syntheses = await getSyntheses(chap.id);
+      renderSyntheses();
       rendre();
     }
 
@@ -329,7 +349,9 @@ import { lien } from '../lib/url';
       }
     });
 
-    // Export : résumé complet du chapitre par l'IA
+    // ---------- Résumés de chapitre (générés à la demande, jamais automatiques) ----------
+    let syntheses: Synthese[] = [];
+
     /** Découpe un résumé markdown en fiches repliables (une par section ##). */
     function resumeEnFiches(markdown: string): string {
       const sections: { titre: string; corps: string[] }[] = [];
@@ -355,38 +377,87 @@ import { lien } from '../lib/url';
         </details>`).join('');
     }
 
-    document.getElementById('exporter')?.addEventListener('click', async () => {
-      if (!fiches.length) { alert('Aucune fiche dans ce chapitre.'); return; }
-      const section = document.getElementById('resumeExport')!;
-      const content = document.getElementById('resumeExportContent')!;
-      section.classList.remove('hidden');
-      content.innerHTML = '<p class="text-sm text-slate-400">⏳ L\'IA synthétise toutes les fiches du chapitre… (~30 s)</p>';
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    /** Affiche l'archive des résumés (titre + date, repliables). */
+    function renderSyntheses() {
+      document.getElementById('nbSyn')!.textContent = syntheses.length ? String(syntheses.length) : '';
+      if (!syntheses.length) {
+        listeSyn.innerHTML = vide('Aucun résumé pour ce chapitre.<br />Clique sur « ➕ Générer un résumé » quand tu en as besoin.');
+        return;
+      }
+      listeSyn.innerHTML = syntheses.map((s) => `
+        <details class="carte overflow-hidden">
+          <summary class="px-4 py-3 cursor-pointer">
+            <span class="flex items-center gap-2">
+              <span class="chevron text-brand text-xs">▸</span>
+              <span class="text-sm font-bold">${esc(s.titre)}</span>
+              <span class="ml-auto text-[11px] text-slate-500 font-normal shrink-0">📅 ${dateFr(s.date)}</span>
+            </span>
+          </summary>
+          <div class="px-4 pb-4 border-t border-slate-800 pt-2">
+            <div class="space-y-2">${resumeEnFiches(s.contenu)}</div>
+            <div class="flex gap-2 mt-3 print-hide">
+              <button data-imsyn="${s.id}" type="button" class="btn-doux text-xs">🖨️ Imprimer / PDF</button>
+              <button data-delsyn="${s.id}" type="button" class="btn-doux text-xs text-rose-300">🗑 Supprimer</button>
+            </div>
+          </div>
+        </details>`).join('');
+      listeSyn.querySelectorAll('[data-imsyn]').forEach((b) => b.addEventListener('click', () => window.print()));
+      listeSyn.querySelectorAll('[data-delsyn]').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('Supprimer ce résumé ?')) return;
+        if (await deleteSynthese((b as HTMLElement).dataset.delsyn!)) {
+          syntheses = syntheses.filter((s) => s.id !== (b as HTMLElement).dataset.delsyn);
+          renderSyntheses();
+        } else alert('❌ Suppression impossible.');
+      }));
+    }
+
+    /** Ouvre le panneau de génération : liste des cours cochables. */
+    function ouvrirPanelGenerer() {
+      const panel = document.getElementById('panelGenerer')!;
+      const zoneCours = document.getElementById('listeCours')!;
+      const coursDispo = fiches.filter((f) => f.sourceContenu);
+      if (!coursDispo.length) { alert('Aucun cours dans ce chapitre pour le moment.'); return; }
+      panel.classList.toggle('hidden');
+      zoneCours.innerHTML = coursDispo.map((f, i) => `
+        <label class="flex items-start gap-2 cursor-pointer bg-slate-950 rounded-lg px-3 py-2">
+          <input type="checkbox" data-cours="${f.id}" ${i < 2 ? 'checked' : ''} class="accent-indigo-500 w-4 h-4 mt-0.5" />
+          <span class="min-w-0">
+            <span class="block text-sm font-medium truncate">${esc(f.titre)}</span>
+            <span class="block text-[11px] text-slate-500 truncate">${new Date(f.date).toLocaleDateString('fr-FR')} · ${f.sourceContenu.length} caractères</span>
+          </span>
+        </label>`).join('');
+      const titre = document.getElementById('titreSyn') as HTMLInputElement;
+      titre.value = `Résumé pour le contrôle – ${new Date().toLocaleDateString('fr-FR')}`;
+      document.getElementById('msgGenerer')!.textContent = '';
+    }
+
+    document.getElementById('btnGenerer')?.addEventListener('click', ouvrirPanelGenerer);
+    document.getElementById('annulerGenerer')?.addEventListener('click', () => document.getElementById('panelGenerer')!.classList.add('hidden'));
+
+    document.getElementById('lanGenerer')?.addEventListener('click', async () => {
+      const msg = document.getElementById('msgGenerer')!;
+      const choisis = Array.from(document.querySelectorAll<HTMLInputElement>('#listeCours input:checked')).map((i) => i.dataset.cours!);
+      if (!choisis.length) { msg.textContent = '⚠️ Coche au moins un cours.'; return; }
+      const titre = (document.getElementById('titreSyn') as HTMLInputElement).value.trim() || 'Résumé du chapitre';
+      msg.textContent = '⏳ L\'IA rédige le résumé… (~30 s)';
       try {
-        const coursTextes = fiches.filter((f) => f.sourceContenu).map((f) => f.sourceContenu);
-        const ficheTextes = fiches.map((f) => `Titre : ${f.titre}\nRésumé : ${f.resume}\nPoints clés : ${f.pointsCles.join(', ')}`);
+        const coursTextes = fiches.filter((f) => choisis.includes(f.id) && f.sourceContenu).map((f) => f.sourceContenu);
+        const ficheTextes = fiches.filter((f) => choisis.includes(f.id)).map((f) => `Titre : ${f.titre}\nRésumé : ${f.resume}\nPoints clés : ${f.pointsCles.join(', ')}`);
         const synthese = await resumeChapitre(matiere, titreEl.textContent || '', coursTextes, ficheTextes);
-        content.innerHTML = `<h3 class="font-bold text-lg mb-3">${esc(synthese.titre)}</h3>
-          <div class="space-y-2">${resumeEnFiches(synthese.resume)}</div>
-          ${synthese.pointsCles.length ? `<details class="carte overflow-hidden mt-3">
-            <summary class="px-4 py-3 text-sm font-bold cursor-pointer flex items-center gap-2">
-              <span class="chevron text-brand text-xs">▸</span>💡 Points clés <span class="pastille bg-brand/20 text-brand">${synthese.pointsCles.length}</span>
-            </summary>
-            <div class="px-4 pb-4 border-t border-slate-800 pt-2"><ul class="space-y-1.5 text-sm">${synthese.pointsCles.map((p) => `<li class="leading-relaxed pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('')}</ul></div>
-          </details>` : ''}
-          ${synthese.quiz.length ? `<details class="carte overflow-hidden mt-3">
-            <summary class="px-4 py-3 text-sm font-bold cursor-pointer flex items-center gap-2">
-              <span class="chevron text-brand text-xs">▸</span>❓ Quiz <span class="pastille bg-brand/20 text-brand">${synthese.quiz.length}</span>
-            </summary>
-            <div class="px-4 pb-4 border-t border-slate-800 pt-2 space-y-2">${synthese.quiz.map((q) => `<details class="bg-slate-950 rounded-xl p-3"><summary class="text-sm font-medium cursor-pointer">${esc(q.q)}</summary><p class="text-sm text-emerald-300 mt-2">${esc(q.r)}</p></details>`).join('')}</div>
-          </details>` : ''}`;
+        const contenu = synthese.resume +
+          (synthese.pointsCles.length ? `\n\n## Points clés\n${synthese.pointsCles.map((p) => '- ' + p).join('\n')}` : '') +
+          (synthese.quiz.length ? `\n\n## Quiz\n${synthese.quiz.map((q) => `- **Q:** ${q.q} **R:** ${q.r}`).join('\n')}` : '');
+        const save = await saveSynthese(id, titre, contenu);
+        if (!save) { msg.textContent = '❌ Sauvegarde échouée.'; return; }
+        document.getElementById('panelGenerer')!.classList.add('hidden');
+        msg.textContent = '';
+        syntheses = [save, ...syntheses];
+        renderSyntheses();
+        onglet('syntheses');
       } catch (err: any) {
-        content.innerHTML = `<p class="text-sm text-rose-400">❌ ${esc(err.message)}</p>`;
+        msg.textContent = '❌ ' + err.message;
       }
     });
-
-    document.getElementById('printExport')?.addEventListener('click', () => window.print());
-    document.getElementById('fermerExport')?.addEventListener('click', () => document.getElementById('resumeExport')?.classList.add('hidden'));
 
     if (!isLoggedIn()) window.location.href = lien('/login');
     else { onglet('cours'); charger(); }
