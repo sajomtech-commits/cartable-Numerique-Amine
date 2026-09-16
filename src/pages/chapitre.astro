@@ -102,7 +102,7 @@ import { lien } from '../lib/url';
         ? cours.map((f) => `
             <details class="carte overflow-hidden" ${cours.length === 1 ? 'open' : ''}>
               <summary class="px-4 py-3 text-sm font-semibold cursor-pointer">📖 ${esc(f.titre)} <span class="text-xs text-slate-500 font-normal">· ${dateFr(f.date)}</span></summary>
-              <div class="px-4 pb-4"><pre class="text-xs leading-relaxed text-slate-300 whitespace-pre-wrap max-h-[28rem] overflow-auto">${esc(f.sourceContenu)}</pre></div>
+              <div class="px-4 pb-4 text-sm text-slate-300 leading-relaxed max-h-[28rem] overflow-auto">${resumeHTML(f.sourceContenu)}</div>
             </details>`).join('')
         : vide('Aucun cours pour ce chapitre. Clique sur « 📷 Ajouter un cours ».');
 
