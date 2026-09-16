@@ -39,6 +39,7 @@ import { lien } from '../lib/url';
       <button data-onglet="fiches" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📝 Fiches de révision</button>
       <button data-onglet="pdf" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📄 PDF scannés</button>
       <button data-onglet="syntheses" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">📄 Résumés<span id="nbSyn" class="ml-1 text-[10px] pastille bg-slate-800 text-slate-400"></span></button>
+      <button data-onglet="audio" class="flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition">🔊 Audio<span id="nbAudio" class="ml-1 text-[10px] pastille bg-slate-800 text-slate-400"></span></button>
     </nav>
 
     <!-- ---------- résumés de chapitre (générés à la demande, archivés) ---------- -->
@@ -68,16 +69,45 @@ import { lien } from '../lib/url';
     <section id="voletCours" class="space-y-3"></section>
     <section id="voletFiches" class="hidden space-y-4"></section>
     <section id="voletPdf" class="hidden space-y-2"></section>
+
+    <!-- ---------- révision audio (script IA + voix, archivée) ---------- -->
+    <section id="voletAudio" class="hidden space-y-4">
+      <div class="flex flex-wrap items-center gap-3 print-hide">
+        <button id="btnAudio" type="button" class="btn-principal">🎙️ Générer une révision audio</button>
+        <p class="text-[11px] text-slate-500">L'IA écrit un résumé oral et la voix le lit (~1 min de génération).</p>
+      </div>
+
+      <div id="panelAudio" class="hidden carte p-4 space-y-3">
+        <p class="text-sm font-semibold">📚 Cours à inclure</p>
+        <div id="listeSourceAudio" class="space-y-2 max-h-52 overflow-auto"></div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 mb-1">Durée de la révision</label>
+          <div class="flex flex-wrap gap-2">
+            <button data-duree="2" class="chipDuree btn-doux text-xs">≈ 2 min</button>
+            <button data-duree="3" class="chipDuree btn-principal text-xs">≈ 3 min</button>
+            <button data-duree="5" class="chipDuree btn-doux text-xs">≈ 5 min</button>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="lanAudio" type="button" class="btn-principal">🎙️ Générer</button>
+          <button id="annulerAudio" type="button" class="btn-doux">Annuler</button>
+          <span id="msgAudio" class="text-xs text-slate-400"></span>
+        </div>
+      </div>
+
+      <div id="listeAudios" class="space-y-2"></div>
+    </section>
   </main>
 
   <script>
     import { getChapitre, renommerChapitre, supprimerChapitre } from '../lib/chapitres';
     import { getFiches, updateFiche, type Fiche } from '../lib/fiches';
-    import { resumeChapitre } from '../lib/ai';
+    import { resumeChapitre, genererAudio } from '../lib/ai';
     import { getSyntheses, saveSynthese, deleteSynthese, type Synthese } from '../lib/syntheses';
+    import { getAudios, saveAudio, deleteAudio, audioUrl, type AudioRev } from '../lib/audios';
     import { getControles, enregistrerControle, scoreMoyen, type Controle } from '../lib/controles';
     import { lienCours } from '../lib/storage';
-    import { isLoggedIn } from '../lib/auth';
+    import { isLoggedIn, userID } from '../lib/auth';
     import { resumeHTML, esc } from '../lib/rendu';
     import { lien } from '../lib/url';
 
@@ -92,6 +122,8 @@ import { lien } from '../lib/url';
     const vPdf = document.getElementById('voletPdf')!;
     const vSyn = document.getElementById('voletSyntheses')!;
     const listeSyn = document.getElementById('listeSyntheses')!;
+    const vAudio = document.getElementById('voletAudio')!;
+    const listeAudio = document.getElementById('listeAudios')!;
     const set = (i: string, v: number | string) => { const e = document.getElementById(i); if (e) e.textContent = String(v); };
 
     let matiere = '';
@@ -106,7 +138,7 @@ import { lien } from '../lib/url';
 
     /** Affiche l'onglet demandé. */
     function onglet(nom: string) {
-      const volets: Record<string, HTMLElement> = { cours: vCours, fiches: vFiches, pdf: vPdf, syntheses: vSyn };
+      const volets: Record<string, HTMLElement> = { cours: vCours, fiches: vFiches, pdf: vPdf, syntheses: vSyn, audio: vAudio };
       Object.entries(volets).forEach(([k, el]) => el.classList.toggle('hidden', k !== nom));
       document.querySelectorAll('#onglets [data-onglet]').forEach((b) => {
         const actif = (b as HTMLElement).dataset.onglet === nom;
@@ -277,7 +309,9 @@ import { lien } from '../lib/url';
       const ids = new Set(fiches.map((f) => f.id));
       controles = (await getControles()).filter((c) => c.ficheId && ids.has(c.ficheId));
       syntheses = await getSyntheses(chap.id);
+      audios = await getAudios(chap.id);
       renderSyntheses();
+      renderAudios();
       rendre();
     }
 
@@ -456,6 +490,95 @@ import { lien } from '../lib/url';
         onglet('syntheses');
       } catch (err: any) {
         msg.textContent = '❌ ' + err.message;
+      }
+    });
+
+    // ---------- Révision audio (script IA + voix, archivée) ----------
+    let audios: AudioRev[] = [];
+    let dureeAudio = 3;
+
+    function renderAudios() {
+      document.getElementById('nbAudio')!.textContent = audios.length ? String(audios.length) : '';
+      if (!audios.length) {
+        listeAudio.innerHTML = vide('Aucune révision audio.<br />Clique sur « 🎙️ Générer une révision audio » pour en créer une.');
+        return;
+      }
+      listeAudio.innerHTML = audios.map((a) => `
+        <div class="carte p-4">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="grid place-items-center w-9 h-9 rounded-xl bg-slate-800 text-base shrink-0">🎙️</span>
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-bold truncate">${esc(a.titre)}</span>
+              <span class="block text-[11px] text-slate-500">📅 ${dateFr(a.date)}${a.dureeSec ? ' · ⏱️ ' + Math.round(a.dureeSec / 60) + ' min' : ''}</span>
+            </span>
+            <button data-delaudio="${a.id}" type="button" title="Supprimer" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-rose-900/60 print-hide">🗑</button>
+          </div>
+          <audio controls preload="none" data-src="${esc(a.path)}" class="w-full print-hide"></audio>
+        </div>`).join('');
+      listeAudio.querySelectorAll('audio[data-src]').forEach((au) => {
+        audioUrl((au as HTMLElement).dataset.src || '').then((u) => { if (u && au instanceof HTMLAudioElement) au.src = u; });
+      });
+      listeAudio.querySelectorAll('[data-delaudio]').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('Supprimer cette révision audio ?')) return;
+        if (await deleteAudio((b as HTMLElement).dataset.delaudio!)) {
+          audios = audios.filter((a) => a.id !== (b as HTMLElement).dataset.delaudio);
+          renderAudios();
+        } else alert('❌ Suppression impossible.');
+      }));
+    }
+
+    function ouvrirPanelAudio() {
+      const panel = document.getElementById('panelAudio')!;
+      const zone = document.getElementById('listeSourceAudio')!;
+      const coursDispo = fiches.filter((f) => f.sourceContenu);
+      if (!coursDispo.length) { alert('Aucun cours dans ce chapitre pour le moment.'); return; }
+      panel.classList.toggle('hidden');
+      zone.innerHTML = coursDispo.map((f, i) => `
+        <label class="flex items-start gap-2 cursor-pointer bg-slate-950 rounded-lg px-3 py-2">
+          <input type="checkbox" data-coursaudio="${f.id}" ${i < 2 ? 'checked' : ''} class="accent-indigo-500 w-4 h-4 mt-0.5" />
+          <span class="min-w-0">
+            <span class="block text-sm font-medium truncate">${esc(f.titre)}</span>
+            <span class="block text-[11px] text-slate-500">${dateFr(f.date)}</span>
+          </span>
+        </label>`).join('');
+      document.getElementById('msgAudio')!.textContent = '';
+      majChipDuree();
+    }
+
+    function majChipDuree() {
+      document.querySelectorAll('.chipDuree').forEach((c) => {
+        const actif = Number((c as HTMLElement).dataset.duree) === dureeAudio;
+        c.className = `chipDuree text-xs ${actif ? 'btn-principal' : 'btn-doux'}`;
+      });
+    }
+
+    document.querySelectorAll('.chipDuree').forEach((c) => c.addEventListener('click', () => {
+      dureeAudio = Number((c as HTMLElement).dataset.duree) || 3;
+      majChipDuree();
+    }));
+
+    document.getElementById('btnAudio')?.addEventListener('click', ouvrirPanelAudio);
+    document.getElementById('annulerAudio')?.addEventListener('click', () => document.getElementById('panelAudio')!.classList.add('hidden'));
+
+    document.getElementById('lanAudio')?.addEventListener('click', async () => {
+      const msg = document.getElementById('msgAudio')!;
+      const uid = userID();
+      if (!uid) { msg.textContent = '⚠️ Session expirée, reconnecte-toi.'; return; }
+      const choisis = Array.from(document.querySelectorAll<HTMLInputElement>('#listeSourceAudio input:checked')).map((i) => i.dataset.coursaudio!);
+      if (!choisis.length) { msg.textContent = '⚠️ Coche au moins un cours.'; return; }
+      msg.textContent = '⏳ L\'IA écrit le script puis génère la voix… (~1 min)';
+      const titre = `Révision audio – ${new Date().toLocaleDateString('fr-FR')}`;
+      try {
+        const cours = fiches.filter((f) => choisis.includes(f.id) && f.sourceContenu).map((f) => f.sourceContenu);
+        const fichesTextes = fiches.filter((f) => choisis.includes(f.id)).map((f) => `Titre : ${f.titre}\nRésumé : ${f.resume}\nPoints clés : ${f.pointsCles.join(', ')}`);
+        const gen = await genererAudio({ matiere, titre: titreEl.textContent || '', cours, fiches: fichesTextes, duree_min: dureeAudio, uid, chapitre: titreEl.textContent || '' });
+        const save = await saveAudio(id, null, titre, gen.path, gen.duree_sec);
+        document.getElementById('panelAudio')!.classList.add('hidden');
+        msg.textContent = '';
+        if (save) { audios = [save, ...audios]; renderAudios(); onglet('audio'); }
+        else { msg.textContent = '⚠️ Généré mais sauvegarde échouée.'; }
+      } catch (err: any) {
+        msg.textContent = '❌ ' + (err.message || String(err));
       }
     });
 

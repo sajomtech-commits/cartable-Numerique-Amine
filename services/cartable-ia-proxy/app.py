@@ -1,36 +1,26 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import json, os, urllib.request, urllib.error
+import json, re, time, urllib.request, urllib.error
 
-OC_URL = 'https://opencode.ai/zen/go/v1/chat/completions'
-KEY = os.environ['OC_KEY']
+def slug(s, defaut='divers'):
+    s = re.sub(r'[^\w\-]+', '-', (s or '').lower().strip())
+    s = re.sub(r'-+', '-', s).strip('-')[:60]
+    return s or defaut
 
-PROMPT_FICHE = (
-    "Tu es un professeur de lycee en France. A partir du cours de {matiere} ci-dessous, "
-    "produis une fiche de revision au format EXACT suivant (markdown) :\n"
-    "## TITRE: <titre du chapitre>\n## RESUME\n<3 a 4 phrases claires>\n## POINTS CLES\n"
-    "- <10 points max, un par ligne>\n## QUIZ\n**Q:** <question de controle type> **R:** <reponse courte>\n"
-    "(4 Q/R)\n\nCOURS:\n{contenu}"
-)
-
-def call_opencode(messages, max_tokens=2000):
-    body = json.dumps({
-        'model': 'glm-5.3-flash', 'temperature': 0.3, 'max_tokens': max_tokens,
-        'messages': messages,
-    }).encode()
-    req = urllib.request.Request(OC_URL, data=body, method='POST', headers={
-        'Authorization': f'Bearer {KEY}', 'Content-Type': 'application/json',
-        'x-opencode-session': f'cartable-proxy-{os.getpid()}', 'User-Agent': 'cartable-proxy',
-    })
-    with urllib.request.urlopen(req, timeout=120) as r:
-        resp = json.loads(r.read().decode())
-    content = resp['choices'][0]['message']['content']
-    # si le modèle renvoie du reasoning + content, content seul suffit (testé)
-    return content
+def tts_mp3(script, voice='fr-FR-DeniseNeural'):
+    import asyncio, edge_tts
+    async def go():
+        c = edge_tts.Communicate(script, voice)
+        out = b''
+        async for chunk in c.stream():
+            if chunk.get('type') == 'audio':
+                out += chunk['data']
+        return out
+    return asyncio.run(go())
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
-    def log_message(self, *a):  # logs silencieux
+    def log_message(self, *a):  # silencieux
         pass
 
     def _cors(self):
@@ -47,8 +37,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/health':
             body = b'{"ok":true}'
-            self.send_response(200); self._hdrs(len(body))
-            self.wfile.write(body); return
+            self.send_response(200); self._hdrs(len(body)); self.wfile.write(body); return
         self.send_response(404); self._hdrs(); self.end_headers()
 
     def do_POST(self):
@@ -56,35 +45,44 @@ class Handler(BaseHTTPRequestHandler):
             n = int(self.headers.get('Content-Length', 0))
             data = json.loads(self.rfile.read(n))
             route = self.path
-            if route == '/fiche':
-                md = call_opencode([{'role':'user','content': PROMPT_FICHE.format(
-                    matiere=data['matiere'], contenu=data['texte'][:15000])}])
-                out = {'markdown': md}
-            elif route == '/ocr':
-                # data: {images: [dataurl,...]} — vision lit chaque image
-                parts = [{'type':'text','text':
-                    'Transcris fidèlement TOUT le texte visible de ces pages de cours '
-                    '(imprimé, manuscrit, tableaux, formules). Garde la structure (titres, listes). '
-                    'Répond uniquement avec la transcription.'}]
-                for u in data['images'][:8]:
-                    parts.append({'type':'image_url','image_url':{'url': u}})
-                md = call_opencode([{'role':'user','content': parts}], max_tokens=4000)
-                out = {'texte': md}
-            else:
-                self.send_response(404); self._hdrs(); self.end_headers(); return
-            body = json.dumps(out).encode()
-            self.send_response(200); self._hdrs(len(body))
-            self.wfile.write(body)
+
+            if route == '/audio':
+                # Génération de la révision audio : script -> MP3 (edge-tts) -> bucket Supabase
+                script = str(data.get('script') or '')[:3200]
+                uid = str(data.get('uid') or '')
+                su = (data.get('supabase_url') or '').rstrip('/')
+                key = data.get('service_key') or ''
+                if not script or not uid or not su or not key:
+                    out = {'error': 'parametres manquants (script, uid, supabase_url, service_key)'}
+                    self.send_response(400); self._hdrs(len(json.dumps(out).encode())); self.wfile.write(json.dumps(out).encode()); return
+                mp3 = tts_mp3(script, data.get('voice') or 'fr-FR-DeniseNeural')
+                mat = slug(data.get('matiere'))
+                chap = slug(data.get('chapitre') or 'sans-chapitre')
+                path = f"{uid}/{mat}/{chap}/{int(time.time()*1000)}.mp3"
+                req = urllib.request.Request(
+                    f"{su}/storage/v1/object/audio/{path}", data=mp3, method='POST',
+                    headers={'Authorization': f'Bearer {key}', 'apikey': key,
+                             'Content-Type': 'audio/mpeg', 'x-upsert': 'true',
+                             'User-Agent': 'Mozilla/5.0'})  # Cloudflare exige un UA navigateur
+                with urllib.request.urlopen(req, timeout=90) as r:
+                    r.read()
+                duree = max(1, round(len(script) / 13.5))  # ~13-14 caractères/s à l'oral
+                out = {'path': path, 'duree_sec': duree, 'octets': len(mp3)}
+                self.send_response(200); self._hdrs(len(json.dumps(out).encode())); self.wfile.write(json.dumps(out).encode()); return
+
+            out = {'error': 'route inconnue'}
+            self.send_response(404); self._hdrs(len(json.dumps(out).encode())); self.wfile.write(json.dumps(out).encode())
         except urllib.error.HTTPError as e:
-            body = json.dumps({'erreur': f'IA: {e.code} {e.read().decode()[:200]}'}).encode()
+            body = json.dumps({'erreur': f'{e.code} {e.read().decode()[:200]}'}).encode()
             self.send_response(502); self._hdrs(len(body)); self.wfile.write(body)
         except Exception as e:
             body = json.dumps({'erreur': str(e)[:300]}).encode()
             self.send_response(500); self._hdrs(len(body)); self.wfile.write(body)
 
     def _hdrs(self, n=0):
-        self.send_header('Content-Type','application/json')
-        self.send_header('Access-Control-Allow-Origin','*')
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Content-Length', str(n))
+        self.end_headers()
 
 HTTPServer(('0.0.0.0', 8899), Handler).serve_forever()

@@ -80,6 +80,17 @@ export async function resumeChapitre(matiere: string, titre: string, cours: stri
   };
 }
 
+/** Révision audio : script IA + MP3. Le path est dans le bucket privé « audio ». */
+export interface AudioGenere { script: string; path: string; duree_sec: number; }
+export async function genererAudio(payload: {
+  matiere: string; titre: string; cours: string[]; fiches: string[];
+  duree_min: number; uid: string; chapitre: string;
+}): Promise<AudioGenere> {
+  const j = await post('/audio', payload, 240000);
+  if (j.error) throw new Error(j.error);
+  return { script: j.script || '', path: j.path || '', duree_sec: j.duree_sec || 0 };
+}
+
 /** OCR d'une seule page (image base64) — utilisé par la prise de photo, page par page. */
 export async function ocrImage(image: string): Promise<string> {
   const j = await post('/ocr', { images: [image] }, 180000);

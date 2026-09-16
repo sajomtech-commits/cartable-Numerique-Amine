@@ -227,6 +227,57 @@ RÈGLES :
       return new Response(JSON.stringify(fiche), { headers: { ...CORS, 'Content-Type': 'application/json' } });
     }
 
+    // Révision audio : script IA (DeepSeek) → MP3 (edge-tts via service Python)
+    if (route === '/audio') {
+      const { matiere = 'Divers', titre = '', cours = [], fiches = [], duree_min = 3, uid = '', chapitre = '', supabase_url = '' } = body;
+      if (!uid) {
+        return new Response(JSON.stringify({ error: 'uid manquant' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+      const duree = Math.max(1, Math.min(8, Number(duree_min) || 3));
+      const words = Math.round(duree * 130);
+      const promptScript = `Tu es un professeur qui prépare une RÉVISION AUDIO pour un élève de 2nde.
+Écris le script d'un monologue de révision de ~${duree} minutes (≈ ${words} mots), en français naturel PARLÉ (comme un prof qui explique à voix haute).
+Thème : ${matiere} — ${titre}
+CONTENU (cours et fiches) :
+${cours.map((c: string, i: number) => `=== COURS ${i + 1} ===\n${c.slice(0, 8000)}`).join('\n\n')}
+${fiches.map((f: string, i: number) => `=== FICHE ${i + 1} ===\n${f.slice(0, 4000)}`).join('\n\n')}
+
+RÈGLES :
+- Phrases courtes et claires, comme on parle réellement.
+- Annonce les sections oralement : « D'abord, ... », « Passons à ... », « Un point important : ... ».
+- Termine par 2-3 questions de contrôle avec leur réponse : « Question : ... Réponse : ... ».
+- PAS de markdown, PAS de titres, PAS de puces : uniquement du texte parlé, séparé par des paragraphes.
+- Garde l'essentiel que l'élève doit retenir, sans répétition.`;
+      const msgs: any[] = [
+        { role: 'system', content: 'Tu rédiges des scripts de révision audio : texte parlé uniquement, sans markdown.' },
+        { role: 'user', content: promptScript },
+      ];
+      const script = (await callIA(msgs, 2000)).trim() || `Révision audio du chapitre ${titre}`;
+      // TTS via le service Python (edge-tts), publié sur l'hôte
+      const sk = Deno.env.get('SERVICE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      const su = (supabase_url || 'https://supabase.sagetech.vip').replace(/\/+$/, '');
+      const candidats = ['http://192.168.1.51:8899', 'http://172.17.0.1:8899', 'http://host.docker.internal:8899', 'http://cartable-ia:8899'];
+      let derreur = '';
+      for (const base of candidats) {
+        try {
+          const r = await fetch(base + '/audio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ script, uid, matiere, chapitre, supabase_url: su, service_key: sk }),
+            signal: AbortSignal.timeout(120000),
+          });
+          const txt = await r.text();
+          if (r.ok) {
+            let j: any = {};
+            try { j = JSON.parse(txt); } catch { j = { raw: txt.slice(0, 120) }; }
+            return new Response(JSON.stringify({ ...j, script }), { headers: { ...CORS, 'Content-Type': 'application/json' } });
+          }
+          derreur = `${base}: ${txt.slice(0, 120)}`;
+        } catch (e) { derreur = `${base}: ${String(e).slice(0, 120)}`; }
+      }
+      return new Response(JSON.stringify({ error: 'TTS indisponible — ' + derreur }), { status: 502, headers: { ...CORS, 'Content-Type': 'application/json' } });
+    }
+
     return new Response(JSON.stringify({ error: 'route inconnue', route }), { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error('[cartable-ia] erreur :', String((e as Error)?.message || e).slice(0, 300));
