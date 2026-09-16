@@ -90,7 +90,8 @@ export async function audioUrl(path: string): Promise<string | null> {
     if (!signed) return null;
     const resp = await fetch(signed, { headers: { apikey: KEY } });
     if (!resp.ok) return null;
-    const blob = await resp.blob();
+    const buf = await resp.arrayBuffer();
+    const blob = new Blob([buf], { type: 'audio/mpeg' });
     return URL.createObjectURL(blob);
   } catch { return null; }
 }

@@ -513,10 +513,15 @@ import { lien } from '../lib/url';
             </span>
             <button data-delaudio="${a.id}" type="button" title="Supprimer" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-rose-900/60 print-hide">🗑</button>
           </div>
-          <audio controls preload="none" data-src="${esc(a.path)}" class="w-full print-hide"></audio>
+          <audio controls preload="auto" data-src="${esc(a.path)}" class="w-full print-hide" data-audio-msg="${esc(a.id)}"></audio>
+          <p id="audio-msg-${esc(a.id)}" class="hidden text-[11px] text-rose-400 mt-1"></p>
         </div>`).join('');
       listeAudio.querySelectorAll('audio[data-src]').forEach((au) => {
-        audioUrl((au as HTMLElement).dataset.src || '').then((u) => { if (u && au instanceof HTMLAudioElement) au.src = u; });
+        const msgEl = document.getElementById('audio-msg-' + (au as HTMLElement).dataset.audioMsg) as HTMLElement | null;
+        audioUrl((au as HTMLElement).dataset.src || '').then((u) => {
+          if (u && au instanceof HTMLAudioElement) { au.src = u; au.type = 'audio/mpeg'; au.load(); }
+          else if (msgEl) { msgEl.textContent = '❌ Impossible de charger cet audio (réessaie).'; msgEl.classList.remove('hidden'); }
+        });
       });
       listeAudio.querySelectorAll('[data-delaudio]').forEach((b) => b.addEventListener('click', async () => {
         if (!confirm('Supprimer cette révision audio ?')) return;
