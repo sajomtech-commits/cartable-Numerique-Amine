@@ -4,74 +4,77 @@ import { lien } from '../lib/url';
 import { MATIERES } from '../lib/matieres';
 ---
 <Layout title="Tableau de bord — Cartable Amine">
-  <main class="max-w-4xl mx-auto px-5 md:px-8 py-6 md:py-10">
+  <main class="max-w-4xl mx-auto px-5 md:px-8 py-8 md:py-12">
 
     <!-- ---------- en-tête ---------- -->
-    <header class="mb-6">
+    <header class="mb-8">
       <p id="dateJour" class="text-xs text-slate-500"></p>
-      <div class="flex items-baseline gap-2 mt-1">
-        <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-100">Tableau de bord</h1>
-        <span class="pastille bg-slate-800 text-slate-400">2nde</span>
+      <div class="flex items-center gap-2 mt-1">
+        <h1 class="text-3xl md:text-4xl font-bold tracking-tight">Bonjour Amine</h1>
+        <span class="pastille bg-slate-800 text-slate-400 mt-1">2nde</span>
       </div>
     </header>
 
     <!-- ---------- recherche ---------- -->
-    <a href={lien('/recherche')} class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900/60 ring-1 ring-slate-800 text-sm text-slate-400 hover:ring-brand/40 transition mb-6">
+    <a href={lien('/recherche')}
+       class="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-900/60 ring-1 ring-slate-800 text-sm text-slate-400 hover:ring-brand/50 transition mb-8">
       <span class="text-slate-500">🔎</span> Rechercher un cours, une fiche, un mot…
     </a>
 
-    <!-- ---------- bandeau invité ---------- -->
-    <a id="blocInvite" href={lien('/login')} class="hidden mb-6 carte-douce p-4 flex items-center gap-3">
-      <span>🔒</span>
+    <!-- ---------- invité ---------- -->
+    <a id="blocInvite" href={lien('/login')} class="hidden mb-8 carte-douce p-4 flex items-center gap-3">
+      <span class="text-lg">🔒</span>
       <span class="text-sm text-slate-300">Connecte-toi pour retrouver tes fiches et tes cours.</span>
     </a>
 
-    <!-- ---------- chiffres (discrets) ---------- -->
-    <section class="grid grid-cols-4 gap-2 py-4 border-y border-slate-800/70 mb-8 text-center">
-      <div><p id="sFiches" class="text-lg font-bold text-slate-100">–</p><p class="text-[10px] uppercase tracking-wider text-slate-500">fiches</p></div>
-      <div><p id="sChapitres" class="text-lg font-bold text-slate-100">–</p><p class="text-[10px] uppercase tracking-wider text-slate-500">chapitres</p></div>
-      <div><p id="sQuiz" class="text-lg font-bold text-slate-100">–</p><p class="text-[10px] uppercase tracking-wider text-slate-500">quiz</p></div>
-      <div><p id="sMoy" class="text-lg font-bold text-slate-100">–</p><p class="text-[10px] uppercase tracking-wider text-slate-500">moyenne</p></div>
-    </section>
-
     <!-- ---------- actions ---------- -->
-    <section class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-8">
-      <a href={lien('/fiche')} class="carte px-4 py-3 text-center hover:ring-brand/40 transition">
-        <p class="text-xl mb-1">📷</p><p class="text-sm font-semibold">Scanner</p><p class="text-[11px] text-slate-500">un cours</p>
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
+      <a href={lien('/fiche')} class="carte p-4 flex flex-col items-start gap-3 hover:ring-brand/50 transition">
+        <span class="grid place-items-center w-10 h-10 rounded-xl bg-brand/15 text-lg">📷</span>
+        <span>
+          <span class="block font-semibold text-sm">Scanner</span>
+          <span class="block text-[11px] text-slate-500">un cours</span>
+        </span>
       </a>
-      <a href={lien('/revisions')} class="carte px-4 py-3 text-center hover:ring-brand/40 transition">
-        <p class="text-xl mb-1">📚</p><p class="text-sm font-semibold">Fiches</p><p class="text-[11px] text-slate-500">réviser</p>
+      <a href={lien('/revisions')} class="carte p-4 flex flex-col items-start gap-3 hover:ring-brand/50 transition">
+        <span class="grid place-items-center w-10 h-10 rounded-xl bg-slate-800/70 text-lg">📚</span>
+        <span>
+          <span class="block font-semibold text-sm">Fiches</span>
+          <span class="block text-[11px] text-slate-500">réviser</span>
+        </span>
       </a>
-      <a href={lien('/quiz')} class="carte px-4 py-3 text-center hover:ring-brand/40 transition">
-        <p class="text-xl mb-1">🎯</p><p class="text-sm font-semibold">Quiz</p><p class="text-[11px] text-slate-500">s'entraîner</p>
+      <a href={lien('/quiz')} class="carte p-4 flex flex-col items-start gap-3 hover:ring-brand/50 transition">
+        <span class="grid place-items-center w-10 h-10 rounded-xl bg-slate-800/70 text-lg">🎯</span>
+        <span>
+          <span class="block font-semibold text-sm">Quiz</span>
+          <span class="block text-[11px] text-slate-500">s'entraîner</span>
+        </span>
       </a>
-      <a href={lien('/cours')} class="carte px-4 py-3 text-center hover:ring-brand/40 transition">
-        <p class="text-xl mb-1">📄</p><p class="text-sm font-semibold">Cours</p><p class="text-[11px] text-slate-500">documents</p>
+      <a href={lien('/cours')} class="carte p-4 flex flex-col items-start gap-3 hover:ring-brand/50 transition">
+        <span class="grid place-items-center w-10 h-10 rounded-xl bg-slate-800/70 text-lg">📄</span>
+        <span>
+          <span class="block font-semibold text-sm">Cours</span>
+          <span class="block text-[11px] text-slate-500">documents</span>
+        </span>
       </a>
-    </section>
-
-    <!-- ---------- dernières fiches ---------- -->
-    <section class="mb-8">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="titre-section">Derniers cours</h2>
-        <a href={lien('/revisions')} class="text-xs text-slate-500 hover:text-brand">Tout voir</a>
-      </div>
-      <div id="recentes" class="space-y-2"></div>
     </section>
 
     <!-- ---------- matières ---------- -->
     <section>
-      <h2 class="titre-section mb-3">Matières</h2>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="titre-section">Matières</h2>
+        <span id="compteMat" class="text-[11px] text-slate-500"></span>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {MATIERES.map((m) => (
           <a href={lien(`/matieres/${m.slug}`)} data-matiere={m.nom}
-             class="carte px-3 py-3 hover:ring-brand/40 transition">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-lg leading-none">{m.icon}</span>
-              <span data-compteur class="ml-auto text-[11px] text-slate-500">0</span>
+             class="carte p-4 hover:-translate-y-0.5 transition-transform">
+            <div class="flex items-center justify-between mb-2">
+              <span class="grid place-items-center w-9 h-9 rounded-xl bg-slate-800/70 text-base">{m.icon}</span>
+              <span data-compteur class="text-[11px] text-slate-500">0</span>
             </div>
             <p class="text-sm font-medium leading-tight">{m.nom}</p>
-            <div class="mt-2 h-0.5 rounded-full bg-slate-800 overflow-hidden">
+            <div class="mt-2.5 h-0.5 rounded-full bg-slate-800 overflow-hidden">
               <div data-barre class="h-full w-0 bg-brand rounded-full transition-all duration-500"></div>
             </div>
           </a>
@@ -82,10 +85,7 @@ import { MATIERES } from '../lib/matieres';
 
   <script>
     import { getFiches, type Fiche } from '../lib/fiches';
-    import { getControles, scoreMoyen } from '../lib/controles';
     import { isLoggedIn } from '../lib/auth';
-    import { MATIERES } from '../lib/matieres';
-    import { esc } from '../lib/rendu';
     import { lien } from '../lib/url';
 
     const set = (id: string, v: string | number) => {
@@ -96,41 +96,13 @@ import { MATIERES } from '../lib/matieres';
     const auj = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
     set('dateJour', auj.charAt(0).toUpperCase() + auj.slice(1));
 
-    const recentes = document.getElementById('recentes')!;
-
     if (!isLoggedIn()) {
       document.getElementById('blocInvite')?.classList.remove('hidden');
-      set('sFiches', '–'); set('sChapitres', '–'); set('sQuiz', '–'); set('sMoy', '–');
-      recentes.innerHTML = '<p class="carte-douce p-4 text-sm text-slate-400">Connecte-toi pour voir tes derniers cours.</p>';
     } else {
       const fiches: Fiche[] = await getFiches();
-      const controles = await getControles();
+      const total = fiches.length;
+      set('compteMat', total ? total + ' fiche' + (total > 1 ? 's' : '') : '');
 
-      const chapitres = new Set(fiches.map((f) => f.chapitreId || f.chapitre).filter(Boolean));
-      const moy = scoreMoyen(controles);
-      set('sFiches', fiches.length);
-      set('sChapitres', chapitres.size);
-      set('sQuiz', controles.length);
-      set('sMoy', moy === null ? '–' : moy + '%');
-
-      // dernières fiches
-      if (!fiches.length) {
-        recentes.innerHTML = '<p class="carte-douce p-4 text-sm text-slate-400">Aucun cours pour l\'instant — <a class="text-brand underline" href="' + lien('/fiche') + '">scanne ton premier cours</a>.</p>';
-      } else {
-        recentes.innerHTML = fiches.slice(0, 4).map((f) => {
-          const m = MATIERES.find((x) => x.nom === f.matiere);
-          return '<a href="' + lien('/revisions') + '" class="flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-900/50 ring-1 ring-slate-800 hover:ring-brand/40 transition">' +
-            '<span class="text-base shrink-0">' + (m?.icon || '📖') + '</span>' +
-            '<span class="min-w-0 flex-1">' +
-              '<span class="block text-sm font-medium truncate">' + esc(f.titre) + '</span>' +
-              '<span class="block text-[11px] text-slate-500 truncate">' + esc(f.matiere) + (f.chapitre ? ' · ' + esc(f.chapitre) : '') + '</span>' +
-            '</span>' +
-            '<span class="text-[11px] text-slate-500 shrink-0">' + new Date(f.date).toLocaleDateString('fr-FR') + '</span>' +
-          '</a>';
-        }).join('');
-      }
-
-      // comptage par matière
       const parMatiere = new Map<string, number>();
       fiches.forEach((f) => parMatiere.set(f.matiere, (parMatiere.get(f.matiere) || 0) + 1));
       document.querySelectorAll<HTMLElement>('[data-matiere]').forEach((carte) => {

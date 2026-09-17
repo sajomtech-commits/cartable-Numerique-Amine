@@ -34,6 +34,8 @@ const estActif = (c: string) => chemin === c || (c !== '/' && chemin.startsWith(
           <span class="mr-1.5">{o.icone}</span>{o.libelle}
         </a>
       ))}
+      <button id="themeToggle" type="button" title="Clair / sombre"
+              class="ml-2 w-9 h-9 rounded-xl bg-slate-800/60 hover:bg-slate-700 text-base grid place-items-center">🌙</button>
     </nav>
   </div>
 </header>

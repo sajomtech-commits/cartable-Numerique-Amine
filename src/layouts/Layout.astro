@@ -25,6 +25,25 @@ const { title = "Cartable Numérique — Amine", nav = true } = Astro.props;
   <div class="flex-1 pb-24 md:pb-0"><slot /></div>
   <script>
     import { proposerReprise } from '../lib/player';
+
+    // ---------- thème clair / sombre ----------
+    const appliquerTheme = (clair: boolean) => {
+      document.documentElement.classList.toggle('light', clair);
+      const b = document.getElementById('themeToggle');
+      if (b) b.textContent = clair ? '🌙' : '☀️';
+    };
+    try {
+      const sauve = localStorage.getItem('cartable_theme');
+      appliquerTheme(sauve ? sauve === 'light' : window.matchMedia('(prefers-color-scheme: light)').matches);
+      document.addEventListener('click', (e) => {
+        const t = (e.target as HTMLElement).closest('#themeToggle');
+        if (!t) return;
+        const clair = !document.documentElement.classList.contains('light');
+        appliquerTheme(clair);
+        localStorage.setItem('cartable_theme', clair ? 'light' : 'dark');
+      });
+    } catch { }
+
     // Sur chaque page : proposer de reprendre la dernière révision audio en cours.
     proposerReprise();
   </script>
