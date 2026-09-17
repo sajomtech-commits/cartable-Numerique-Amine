@@ -67,23 +67,33 @@ const emoji = m?.icon ?? '📖';
       const id = c?.id ?? 'sans';
       const titre = c ? esc(c.titre) : 'Sans chapitre';
       const nbPdf = fs.reduce((n, f) => n + (f.fichiers || []).length, 0);
+      const bouton = (attr: string, icone: string, titreBtn: string, extra = '') =>
+        `<button ${attr} title="${titreBtn}" class="grid place-items-center w-7 h-7 rounded-md bg-slate-800/80 hover:bg-slate-700 text-[13px] leading-none ${extra}">${icone}</button>`;
       const edition = c
-        ? `<button data-up title="Monter" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 ${index === 0 ? 'opacity-30' : ''}">↑</button>
-           <button data-down title="Descendre" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 ${index === chapitres.length - 1 ? 'opacity-30' : ''}">↓</button>
-           <button data-ren title="Renommer" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700">✏️</button>
-           <button data-del title="Supprimer" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-rose-900/60">🗑</button>`
+        ? `<div class="flex items-center gap-0.5 shrink-0">
+             ${bouton('data-up', '↑', 'Monter', index === 0 ? 'opacity-25' : '')}
+             ${bouton('data-down', '↓', 'Descendre', index === chapitres.length - 1 ? 'opacity-25' : '')}
+             ${bouton('data-ren', '✏️', 'Renommer')}
+             ${bouton('data-del', '🗑', 'Supprimer', 'text-rose-300 hover:!bg-rose-900/60')}
+           </div>`
         : '';
-      const contenu = c
-        ? `<a href="${lien('/chapitre')}?id=${c.id}" class="flex items-center gap-2 flex-1 min-w-0 py-1">
-             <span class="pastille bg-brand/20 text-brand shrink-0">n° ${c.numero ?? '?'}</span>
-             <span class="font-bold text-sm truncate">${titre}</span>
-             <span class="text-[11px] text-slate-500 shrink-0 ml-auto">${fs.length} fiche${fs.length > 1 ? 's' : ''}${nbPdf ? ' · ' + nbPdf + ' PDF' : ''}</span>
-             <span class="text-slate-500 shrink-0">›</span>
-           </a>`
-        : `<span class="flex-1 min-w-0 font-bold text-sm text-slate-400 truncate py-1">${titre} <span class="text-[11px] font-normal">· ${fs.length} fiche(s)</span></span>`;
-      return `<article class="carte px-3 py-2 flex items-center gap-2" data-chap="${id}">
-        ${contenu}
-        <div class="flex gap-1 shrink-0">${edition}</div>
+      if (!c) {
+        return `<article class="carte px-4 py-3 flex items-center gap-3" data-chap="sans">
+          <span class="font-semibold text-sm text-slate-400 truncate">${titre}</span>
+          <span class="ml-auto text-[11px] text-slate-500 shrink-0">${fs.length} fiche(s)</span>
+        </article>`;
+      }
+      return `<article class="carte overflow-hidden" data-chap="${id}">
+        <div class="flex items-center gap-2 px-4 py-2.5 border-b border-slate-800/70">
+          <span class="pastille bg-brand/15 text-brand shrink-0">n° ${c.numero ?? '?'}</span>
+          <a href="${lien('/chapitre')}?id=${c.id}" class="font-semibold text-sm truncate flex-1 min-w-0 hover:text-brand transition">${titre}</a>
+          <span class="text-[11px] text-slate-500 shrink-0">${fs.length} fiche${fs.length > 1 ? 's' : ''}${nbPdf ? ' · ' + nbPdf + ' PDF' : ''}</span>
+        </div>
+        <div class="flex items-center gap-2 px-4 py-2">
+          <a href="${lien('/chapitre')}?id=${c.id}" class="btn-principal !px-3 !py-1 !text-xs">Ouvrir</a>
+          <a href="${lien('/fiche')}?matiere=${encodeURIComponent(c.matiere || '')}&chapitre=${encodeURIComponent(c.titre)}" class="btn-doux !px-3 !py-1 !text-xs">📷 Cours</a>
+          <div class="ml-auto">${edition}</div>
+        </div>
       </article>`;
     }
 

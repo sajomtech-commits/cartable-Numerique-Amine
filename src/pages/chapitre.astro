@@ -17,14 +17,6 @@ import { lien } from '../lib/url';
       <p id="resumeChap" class="text-slate-400 text-sm mt-1"></p>
     </header>
 
-    <!-- ---------- chiffres clés ---------- -->
-    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
-      <div class="carte p-4"><p class="text-xs font-medium text-slate-500">Cours</p><p id="sCours" class="mt-1 text-2xl font-extrabold tabular-nums">–</p></div>
-      <div class="carte p-4"><p class="text-xs font-medium text-slate-500">Fiches</p><p id="sFiches" class="mt-1 text-2xl font-extrabold tabular-nums">–</p></div>
-      <div class="carte p-4"><p class="text-xs font-medium text-slate-500">PDF scannés</p><p id="sPdf" class="mt-1 text-2xl font-extrabold tabular-nums">–</p></div>
-      <div class="carte p-4"><p class="text-xs font-medium text-slate-500">Questions</p><p id="sQuiz" class="mt-1 text-2xl font-extrabold tabular-nums">–</p></div>
-    </section>
-
     <!-- ---------- actions (compactes) ---------- -->
     <section class="flex flex-wrap gap-1.5 mb-4 print-hide">
       <a id="ajouter" href={lien('/fiche')} class="btn-principal !px-3 !py-1.5 !text-xs">📷 Ajouter un cours</a>
@@ -33,14 +25,14 @@ import { lien } from '../lib/url';
       <button id="supprimer" type="button" class="btn-doux !px-3 !py-1.5 !text-xs text-rose-300">🗑 Supprimer</button>
     </section>
 
-    <!-- ---------- onglets (défilement horizontal sur mobile) ---------- -->
-    <nav id="onglets" class="-mx-5 px-5 md:mx-0 md:px-0 mb-5 print-hide">
-      <div class="flex gap-1 p-1 rounded-2xl bg-slate-900 ring-1 ring-slate-800 overflow-x-auto whitespace-nowrap">
-        <button data-onglet="cours" class="onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition">📖 Cours</button>
-        <button data-onglet="fiches" class="onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition">📝 Fiches</button>
-        <button data-onglet="pdf" class="onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition">📄 PDF</button>
-        <button data-onglet="syntheses" class="onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition">📄 Résumés<span id="nbSyn" class="ml-1 text-[10px] pastille bg-slate-800 text-slate-400"></span></button>
-        <button data-onglet="audio" class="onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition">🔊 Audio<span id="nbAudio" class="ml-1 text-[10px] pastille bg-slate-800 text-slate-400"></span></button>
+    <!-- ---------- onglets (tous visibles, compacts) ---------- -->
+    <nav id="onglets" class="mb-5 print-hide">
+      <div class="grid grid-cols-5 gap-0.5 p-1 rounded-2xl bg-slate-900 ring-1 ring-slate-800">
+        <button data-onglet="cours" class="onglet rounded-lg px-1 py-2 text-[11px] md:text-sm font-semibold transition leading-tight">📖<span class="block md:inline md:ml-1">Cours</span></button>
+        <button data-onglet="fiches" class="onglet rounded-lg px-1 py-2 text-[11px] md:text-sm font-semibold transition leading-tight">📝<span class="block md:inline md:ml-1">Fiches</span></button>
+        <button data-onglet="pdf" class="onglet rounded-lg px-1 py-2 text-[11px] md:text-sm font-semibold transition leading-tight">📄<span class="block md:inline md:ml-1">PDF</span></button>
+        <button data-onglet="syntheses" class="onglet rounded-lg px-1 py-2 text-[11px] md:text-sm font-semibold transition leading-tight">🗂️<span class="block md:inline md:ml-1">Résumés</span><span id="nbSyn" class="hidden"></span></button>
+        <button data-onglet="audio" class="onglet rounded-lg px-1 py-2 text-[11px] md:text-sm font-semibold transition leading-tight">🔊<span class="block md:inline md:ml-1">Audio</span><span id="nbAudio" class="hidden"></span></button>
       </div>
     </nav>
 
@@ -99,6 +91,17 @@ import { lien } from '../lib/url';
 
       <div id="listeAudios" class="space-y-2"></div>
     </section>
+
+    <!-- ---------- chiffres clés (discrets, en bas) ---------- -->
+    <section class="mt-8 pt-4 border-t border-slate-800/70 print-hide">
+      <p class="text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-2">Ce chapitre en chiffres</p>
+      <div class="flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-slate-500">
+        <span><b id="sCours" class="text-slate-300">–</b> cours</span>
+        <span><b id="sFiches" class="text-slate-300">–</b> fiches</span>
+        <span><b id="sPdf" class="text-slate-300">–</b> PDF</span>
+        <span><b id="sQuiz" class="text-slate-300">–</b> questions</span>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -146,7 +149,7 @@ import { lien } from '../lib/url';
       Object.entries(volets).forEach(([k, el]) => el.classList.toggle('hidden', k !== nom));
       document.querySelectorAll('#onglets [data-onglet]').forEach((b) => {
         const actif = (b as HTMLElement).dataset.onglet === nom;
-        b.className = `onglet shrink-0 rounded-xl px-3 py-2 text-xs md:text-sm font-semibold transition ${actif ? 'bg-brand text-white shadow' : 'text-slate-400 hover:text-white'}`;
+        b.className = `onglet rounded-lg px-1 py-2 text-[11px] md:text-sm font-semibold transition leading-tight ${actif ? 'bg-brand text-white shadow' : 'text-slate-400 hover:text-white'}`;
       });
     }
 
