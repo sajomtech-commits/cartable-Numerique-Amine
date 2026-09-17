@@ -1,113 +1,154 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Barre from '../components/Barre.astro';
 import { lien } from '../lib/url';
-const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Espagnol', 'Histoire-Géo', 'Science Numérique', 'Science Éco', 'Sport'];
+import { MATIERES } from '../lib/matieres';
 ---
-<Layout title="Révisions — Cartable Amine">
-  <main class="max-w-2xl md:max-w-6xl mx-auto px-5 md:px-8 py-8">
-    <Barre retour={lien('/fiche')} libelle="Nouvelle fiche" />
-
-    <div class="md:flex md:items-end md:justify-between md:gap-6">
+<Layout title="Fiches — Cartable Amine">
+  <main class="max-w-4xl mx-auto px-5 md:px-8 py-6 md:py-10">
+    <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
       <div>
-        <h1 class="text-2xl md:text-3xl font-extrabold mb-2">📚 Fiches de révision</h1>
-        <p class="text-slate-400 text-sm">Toutes tes fiches générées — relis-les avant chaque contrôle.</p>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight">Fiches de révision</h1>
+        <p id="compte" class="text-sm text-slate-500 mt-1"></p>
       </div>
-      <div class="flex flex-wrap gap-2 mt-4 md:mt-0 md:shrink-0">
-        <select id="filtre" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm">
+      <div class="flex gap-2 print-hide">
+        <select id="filtre" class="bg-slate-900/60 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
           <option value="">Toutes matières</option>
-          {matieres.map((m) => <option>{m}</option>)}
+          {MATIERES.map((m) => <option value={m.nom}>{m.nom}</option>)}
         </select>
-        <select id="filtreChap" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm">
+        <select id="filtreChap" class="bg-slate-900/60 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
           <option value="">Tous les chapitres</option>
         </select>
       </div>
     </div>
 
-    <p id="compte" class="text-xs text-slate-500 mt-4 mb-4"></p>
-    <div id="liste" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-start"></div>
-    <p id="vide" class="text-slate-500 text-sm hidden">Aucune fiche encore — <a href={`${lien('/fiche')}`} class="text-brand underline">génère ta première fiche</a>.</p>
+    <div id="liste" class="space-y-3"></div>
+    <p id="vide" class="hidden text-sm text-slate-500 text-center py-8">Aucune fiche encore — <a href={`${lien('/fiche')}`} class="text-brand underline">scanne ton premier cours</a>.</p>
   </main>
 
   <script>
-    // Protection : redirection si non connecté
     import { isLoggedIn } from '../lib/auth';
     if (!isLoggedIn()) window.location.href = `${lien('/login')}`;
     import { getFiches, deleteFiche, type Fiche } from '../lib/fiches';
     import { lienCours } from '../lib/storage';
     import { resumeHTML, esc } from '../lib/rendu';
     import { lien } from '../lib/url';
+    import { MATIERES } from '../lib/matieres';
+
     const liste = document.getElementById('liste')!;
     const filtreMat = document.getElementById('filtre') as HTMLSelectElement;
     const filtreChap = document.getElementById('filtreChap') as HTMLSelectElement;
     const VIDE = '(sans chapitre)';
     let toutes: Fiche[] = [];
 
-    /** Alimente la liste des chapitres proposés selon la matière filtrée. */
+    const dateFr = (d: string) => new Date(d).toLocaleDateString('fr-FR');
+    const icone = (nom: string) => MATIERES.find((m) => m.nom === nom)?.icon || '📖';
+
     function majChapitres() {
       const mat = filtreMat.value;
-      const chap = Array.from(new Set(
-        toutes.filter((f) => !mat || f.matiere === mat).map((f) => f.chapitre || VIDE)
-      )).sort((a, b) => a.localeCompare(b, 'fr'));
+      const chap = Array.from(new Set(toutes.filter((f) => !mat || f.matiere === mat).map((f) => f.chapitre || VIDE))).sort((a, b) => a.localeCompare(b, 'fr'));
       const garde = filtreChap.value;
-      filtreChap.innerHTML = '<option value="">Tous les chapitres</option>' +
-        chap.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      filtreChap.innerHTML = '<option value="">Tous les chapitres</option>' + chap.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
       if (chap.includes(garde)) filtreChap.value = garde;
     }
 
-    async function render() {
-      const mat = filtreMat.value;
-      const chap = filtreChap.value;
-      const fiches = toutes.filter((f) =>
-        (!mat || f.matiere === mat) && (!chap || (f.chapitre || VIDE) === chap)
-      );
-      document.getElementById('vide')!.classList.toggle('hidden', fiches.length > 0);
-      document.getElementById('compte')!.textContent = fiches.length
-        ? `${fiches.length} fiche${fiches.length > 1 ? 's' : ''} affichée${fiches.length > 1 ? 's' : ''}.`
-        : '';
-      liste.innerHTML = fiches.map((f) => `
-        <details class="bg-slate-900 rounded-2xl p-5 ring-1 ring-slate-800">
-          <summary class="font-bold cursor-pointer">
-            ${esc(f.titre)}
-            <span class="block text-xs text-slate-500 font-normal mt-1">
-              ${f.chapitre ? `📚 ${esc(f.chapitre)} · ` : ''}${esc(f.matiere)} · ${new Date(f.date).toLocaleDateString('fr-FR')}
-            </span>
-          </summary>
-          <div class="mt-3">${resumeHTML(f.resume)}</div>
-          ${f.traduction ? `<details class="mt-3 rounded-xl bg-slate-950 ring-1 ring-slate-800"><summary class="px-3 py-2 text-xs font-semibold text-brand cursor-pointer">🇫🇷 Traduction du cours</summary><div class="px-3 pb-3">${resumeHTML(f.traduction)}</div></details>` : ''}
-          ${(f.vocabulaire || []).length ? `<details class="mt-2 rounded-xl bg-slate-950 ring-1 ring-slate-800"><summary class="px-3 py-2 text-xs font-semibold text-brand cursor-pointer">📖 Vocabulaire (${f.vocabulaire.length})</summary><div class="px-3 pb-3 grid sm:grid-cols-2 gap-1.5 text-xs">${f.vocabulaire.map((v) => `<div><b class="text-white">${esc(v.mot)}</b> <span class="text-slate-500">→</span> <span class="text-emerald-300">${esc(v.fr)}</span></div>`).join('')}</div></details>` : ''}
-          <h4 class="text-brand font-bold text-sm mt-5 mb-2 pb-1 border-b border-slate-800">Points clés</h4>
-          <ul class="space-y-1.5 text-sm text-slate-200">${f.pointsCles.map((p) => `<li class="leading-relaxed pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('')}</ul>
-          <h4 class="text-brand font-bold text-sm mt-5 mb-1 pb-1 border-b border-slate-800">Quiz de contrôle</h4>
-          <div>${f.quiz.map((q) => `<details class="bg-slate-950 rounded-lg p-3 text-sm mt-2"><summary class="font-medium cursor-pointer">${esc(q.q)}</summary><p class="mt-2 text-emerald-300">${esc(q.r)}</p></details>`).join('')}</div>
-          <div class="mt-4 flex items-center gap-4">
-            ${f.fichiers?.length ? `<a data-fic="${f.id}" href="#" class="text-xs text-brand hover:underline" title="${esc(f.fichiers[0].nom)}">📎 Cours d'origine</a>` : ''}
-            <button data-del="${f.id}" class="text-xs text-rose-400 hover:text-rose-300">🗑 Supprimer</button>
+    /** 3 sous-parties repliables d'une fiche : Résumé / Points clés / Quiz. */
+    function partiesFiche(f: Fiche): string {
+      const bloc = (titre: string, contenu: string) =>
+        `<details class="rounded-lg bg-slate-950/80 ring-1 ring-slate-800 overflow-hidden">
+           <summary class="px-3 py-2 text-xs font-semibold text-slate-300 cursor-pointer">${titre}</summary>
+           <div class="px-3 pb-3">${contenu}</div>
+         </details>`;
+      return bloc('📝 Résumé', `<div class="mt-1 text-sm leading-relaxed">${resumeHTML(f.resume)}</div>`) +
+        (f.traduction ? bloc('🇫🇷 Traduction', `<div class="mt-1 text-sm leading-relaxed">${resumeHTML(f.traduction)}</div>`) : '') +
+        ((f.vocabulaire || []).length ? bloc(`📖 Vocabulaire (${f.vocabulaire.length})`, `<div class="mt-1 grid sm:grid-cols-2 gap-1 text-xs">${f.vocabulaire.map((v) => `<div><b class="text-white">${esc(v.mot)}</b> <span class="text-slate-500">→</span> <span class="text-emerald-300">${esc(v.fr)}</span></div>`).join('')}</div>`) : '') +
+        (f.pointsCles.length ? bloc(`💡 Points clés (${f.pointsCles.length})`, `<ul class="mt-1 space-y-1 text-sm">${f.pointsCles.map((p) => `<li class="leading-relaxed pl-4 relative"><span class="absolute left-0 text-brand">•</span>${esc(p)}</li>`).join('')}</ul>`) : '') +
+        (f.quiz.length ? bloc(`❓ Quiz (${f.quiz.length})`, `<div class="mt-1 space-y-1.5">${f.quiz.map((q) => `<details class="bg-slate-900 rounded-lg p-2 text-sm"><summary class="cursor-pointer font-medium">${esc(q.q)}</summary><p class="mt-1 text-emerald-300">${esc(q.r)}</p></details>`).join('')}</div>`) : '');
+    }
+
+    function ficheRow(f: Fiche): string {
+      const pdfs = (f.fichiers || []).length;
+      return `<details class="carte overflow-hidden">
+        <summary class="px-4 py-2.5 cursor-pointer flex items-center gap-2">
+          <span class="text-base shrink-0">${icone(f.matiere)}</span>
+          <span class="min-w-0">
+            <span class="block text-sm font-semibold truncate">${esc(f.titre)}</span>
+            <span class="block text-[11px] text-slate-500">${dateFr(f.date)}${pdfs ? ' · 📎 ' + pdfs + ' PDF' : ''}${f.quiz.length ? ' · ❓ ' + f.quiz.length : ''}</span>
+          </span>
+          <span class="ml-auto text-slate-500 shrink-0">▾</span>
+        </summary>
+        <div class="px-4 pb-4 border-t border-slate-800/70 pt-3 space-y-2">
+          ${partiesFiche(f)}
+          <div class="flex items-center gap-4 pt-1 print-hide">
+            ${pdfs ? `<a data-fic="${f.id}" href="#" class="text-xs text-brand hover:underline" title="${esc(f.fichiers![0].nom)}">📎 Cours d'origine</a>` : ''}
+            <a href="${lien('/chapitre')}?id=${f.chapitreId || ''}" class="text-xs text-slate-500 hover:text-brand">→ Voir le chapitre</a>
+            <button data-del="${f.id}" class="ml-auto text-xs text-slate-500 hover:text-rose-300">🗑 Supprimer</button>
           </div>
-        </details>`).join('');
+        </div>
+      </details>`;
+    }
+
+    function render() {
+      const mat = filtreMat.value, chap = filtreChap.value;
+      const fiches = toutes.filter((f) => (!mat || f.matiere === mat) && (!chap || (f.chapitre || VIDE) === chap));
+      document.getElementById('vide')!.classList.toggle('hidden', fiches.length > 0);
+      const compte = document.getElementById('compte')!;
+      compte.textContent = fiches.length ? `${fiches.length} fiche${fiches.length > 1 ? 's' : ''}` : '';
+
+      if (!fiches.length) { liste.innerHTML = ''; return; }
+
+      // arborescence : Matière → Chapitre → Fiches
+      const parMat = new Map<string, Map<string, Fiche[]>>();
+      fiches.forEach((f) => {
+        if (!parMat.has(f.matiere)) parMat.set(f.matiere, new Map());
+        const chaps = parMat.get(f.matiere)!;
+        const k = f.chapitre || VIDE;
+        if (!chaps.has(k)) chaps.set(k, []);
+        chaps.get(k)!.push(f);
+      });
+
+      liste.innerHTML = [...parMat.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], 'fr'))
+        .map(([mat, chaps]) => {
+          const nTotal = [...chaps.values()].reduce((a, b) => a + b.length, 0);
+          const corps = [...chaps.entries()]
+            .sort((a, b) => a[0].localeCompare(b[0], 'fr'))
+            .map(([chap, fs]) => `<details class="rounded-xl bg-slate-900/40 ring-1 ring-slate-800 overflow-hidden" open>
+              <summary class="px-3 py-2 cursor-pointer flex items-center gap-2 text-xs font-semibold text-slate-400">
+                <span class="text-slate-500">▸</span> 📚 ${esc(chap === VIDE ? 'Sans chapitre' : chap)}
+                <span class="ml-auto text-[10px] text-slate-500 font-normal">${fs.length}</span>
+              </summary>
+              <div class="px-2 pb-2 space-y-1.5">${fs.map(ficheRow).join('')}</div>
+            </details>`).join('');
+          return `<details class="carte overflow-hidden" open>
+            <summary class="px-4 py-3 cursor-pointer flex items-center gap-2">
+              <span class="text-base">${icone(mat)}</span>
+              <span class="text-sm font-bold">${esc(mat)}</span>
+              <span class="ml-auto text-[11px] text-slate-500 font-normal">${nTotal} fiche${nTotal > 1 ? 's' : ''}</span>
+            </summary>
+            <div class="px-3 pb-3 space-y-2 border-t border-slate-800/70 pt-2">${corps}</div>
+          </details>`;
+        }).join('');
+
       liste.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('Supprimer cette fiche ?')) return;
         await deleteFiche((b as HTMLElement).dataset.del!);
         toutes = toutes.filter((x) => x.id !== (b as HTMLElement).dataset.del);
-        majChapitres();
-        render();
+        majChapitres(); render();
       }));
-      // Résout les liens signés vers les cours d'origine (bucket privé « cours »)
       liste.querySelectorAll('[data-fic]').forEach((a) => {
         const f = toutes.find((x) => x.id === (a as HTMLElement).dataset.fic);
         if (!f?.fichiers?.length) return;
-        lienCours(f.fichiers[0].path).then((u) => {
-          if (u) { (a as HTMLAnchorElement).href = u; (a as HTMLAnchorElement).target = '_blank'; (a as HTMLAnchorElement).rel = 'noopener'; }
-        });
+        lienCours(f.fichiers[0].path).then((u) => { if (u) { (a as HTMLAnchorElement).href = u; (a as HTMLAnchorElement).target = '_blank'; } });
       });
     }
 
     async function charger() {
       toutes = await getFiches();
       majChapitres();
-      await render();
+      render();
     }
 
-    filtreMat.addEventListener('change', async () => { majChapitres(); filtreChap.value = ''; await render(); });
+    filtreMat.addEventListener('change', async () => { majChapitres(); filtreChap.value = ''; render(); });
     filtreChap.addEventListener('change', render);
     charger();
   </script>
