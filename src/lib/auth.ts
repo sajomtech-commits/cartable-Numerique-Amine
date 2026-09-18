@@ -83,3 +83,35 @@ export async function validToken(): Promise<string | null> {
     return fresh.access_token;
   } catch { logout(); return null; }
 }
+
+// ---------- Bascule famille (parent ↔ enfant) ----------
+// Le parent s'authentifie une fois ; la bascule s'échange contre une session enfant
+// (edge /basculer). On garde la session parent de côté pour pouvoir revenir.
+
+const PKEY = 'cartable_auth_parent';
+
+/** Remplace la session courante par celle de quelqu'un d'autre (enfant) et mémorise l'actuelle. */
+export function basculerSession(access: string, refresh: string, expiresAtMs: number, email: string): void {
+  const actuelle = getSession();
+  if (actuelle) localStorage.setItem(PKEY, JSON.stringify(actuelle));
+  localStorage.setItem(SKEY, JSON.stringify({
+    access_token: access,
+    refresh_token: refresh,
+    expires_at: expiresAtMs,
+    email,
+  }));
+}
+
+/** Retourne true s'il existe une session parent mémorisée (bascule en cours vers un enfant). */
+export function parentMemo(): boolean {
+  return localStorage.getItem(PKEY) !== null;
+}
+
+/** Restaure la session du parent (retour depuis un enfant). */
+export function revenirParent(): boolean {
+  const p = localStorage.getItem(PKEY);
+  if (!p) return false;
+  localStorage.setItem(SKEY, p);
+  localStorage.removeItem(PKEY);
+  return true;
+}

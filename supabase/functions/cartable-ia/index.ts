@@ -49,6 +49,15 @@ function parseTolerant(txt: string): any {
   }
 }
 
+/** Extrait le « sub » (uid utilisateur) d'un JWT sans vérifier la signature. */
+function token2sub(token: string): string {
+  try {
+    const part = token.split('.')[1] || '';
+    const json = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+    return json?.sub || '';
+  } catch { return ''; }
+}
+
 async function callIA(msgs: any[], maxTokens = 2600) {
   const r = await fetch(DS_URL, {
     method: 'POST',
@@ -280,7 +289,7 @@ RÈGLES :
 
     // Création de compte (réservée à la famille) : prénom + classe + email + mot de passe
     if (route === '/creer-compte') {
-      const { prenom = '', classe = '', email = '', password = '', cle = '' } = body;
+      const { prenom = '', classe = '', email = '', password = '', cle = '', parent = '' } = body;
       const CLE_FAMILLE = Deno.env.get('FAMILY_KEY') ?? 'cartes-famille-2026';
       if (cle !== CLE_FAMILLE) {
         return new Response(JSON.stringify({ error: 'Clé familiale invalide.' }), { status: 403, headers: { ...CORS, 'Content-Type': 'application/json' } });
@@ -313,9 +322,78 @@ RÈGLES :
           headers: { apikey: sk, Authorization: `Bearer ${sk}`, 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
           body: JSON.stringify({ user_id: j.id, prenom: String(prenom).slice(0, 40), classe: String(classe).slice(0, 30) || null }),
         });
-        return new Response(JSON.stringify({ ok: true, email }), { headers: { ...CORS, 'Content-Type': 'application/json' } });
+        // liaison famille : le créateur devient le parent de l'enfant
+        if (typeof parent === 'string' && /^[0-9a-f-]{36}$/i.test(parent)) {
+          await fetch(`${base}/rest/v1/liaisons_famille`, {
+            method: 'POST',
+            headers: { apikey: sk, Authorization: `Bearer ${sk}`, 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+            body: JSON.stringify({ parent_id: parent, enfant_id: j.id }),
+          }).catch(() => {});
+        }
+        return new Response(JSON.stringify({ ok: true, email, id: j.id }), { headers: { ...CORS, 'Content-Type': 'application/json' } });
       } catch (e) {
         return new Response(JSON.stringify({ error: String(e).slice(0, 200) }), { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // Bascule parent → enfant (le parent se connecte comme l'enfant SANS son mot de passe).
+    // Le token JWT du parent (Authorization) prouve le lien : la requête RLS sur liaisons_famille
+    // ne renvoie une ligne que si auth.uid() = parent_id. Ensuite on crée une session GoTrue
+    // pour l'enfant via un lien magique admin (generate_link) échangé côté serveur.
+    if (route === '/basculer') {
+      const { cible = '' } = body;
+      const auth = req.headers.get('authorization') || '';
+      const token = auth.replace(/^Bearer\s+/i, '').trim();
+      const anon = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_KEY') || '';
+      const sk = Deno.env.get('SERVICE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      if (!token || !anon || !sk || !/^[0-9a-f-]{36}$/i.test(String(cible))) {
+        return new Response(JSON.stringify({ error: 'Requête invalide.' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+      const base = 'https://supabase.sagetech.vip';
+      try {
+        // 1) Le compte appelant est-il bien le parent de « cible » ? (RLS : auth.uid() = parent_id)
+        const v = await fetch(
+          `${base}/rest/v1/liaisons_famille?select=parent_id&parent_id=eq.${token2sub(token)}&enfant_id=eq.${encodeURIComponent(cible)}`,
+          { headers: { apikey: anon, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' } },
+        );
+        const lignes = await v.json();
+        if (!v.ok || !Array.isArray(lignes) || lignes.length === 0) {
+          return new Response(JSON.stringify({ error: 'Accès refusé (tu n\'es pas le parent de ce compte).' }), { status: 403, headers: { ...CORS, 'Content-Type': 'application/json' } });
+        }
+        // 2) Email de l'enfant (admin, service role)
+        const u = await fetch(`${base}/auth/v1/admin/users/${encodeURIComponent(cible)}`, {
+          headers: { apikey: sk, Authorization: `Bearer ${sk}`, 'User-Agent': 'Mozilla/5.0' },
+        });
+        const uj = await u.json();
+        const email = uj?.email;
+        if (!u.ok || !email) {
+          return new Response(JSON.stringify({ error: 'Compte enfant introuvable.' }), { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } });
+        }
+        // 3) Lien magique admin → token OTP
+        const gl = await fetch(`${base}/auth/v1/admin/generate_link`, {
+          method: 'POST',
+          headers: { apikey: sk, Authorization: `Bearer ${sk}`, 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+          body: JSON.stringify({ type: 'magiclink', email, should_expire: false }),
+        });
+        const glj = await gl.json();
+        const lien = glj?.action_link;
+        if (!gl.ok || !lien) {
+          return new Response(JSON.stringify({ error: 'Lien de session impossible (' + (glj?.msg || gl.status) + ').' }), { status: 502, headers: { ...CORS, 'Content-Type': 'application/json' } });
+        }
+        // 4) Échange du token OTP → redirection avec la session dans le « Location » (fragment #access_token=…)
+        const ech = await fetch(lien, { redirect: 'manual', headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const loc = ech.headers.get('location') || '';
+        const hash = loc.includes('#') ? (loc.split('#')[1] || '') : '';
+        const params = new URLSearchParams(hash);
+        const access = params.get('access_token') || '';
+        const refresh = params.get('refresh_token') || '';
+        const expires = Number(params.get('expires_at') || '0') * 1000;
+        if (!access || !refresh || !expires) {
+          return new Response(JSON.stringify({ error: 'Échange de session échoué.', location: loc.slice(0, 80) }), { status: 502, headers: { ...CORS, 'Content-Type': 'application/json' } });
+        }
+        return new Response(JSON.stringify({ ok: true, access_token: access, refresh_token: refresh, expires_at: expires, email }), { headers: { ...CORS, 'Content-Type': 'application/json' } });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String((e as Error)?.message || e).slice(0, 200) }), { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } });
       }
     }
 

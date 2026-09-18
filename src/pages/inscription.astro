@@ -48,6 +48,7 @@ import { lien } from '../lib/url';
 
   <script>
     import { lien } from '../lib/url';
+    import { userID } from '../lib/auth';
 
     const BASE = import.meta.env.PUBLIC_SUPABASE_URL || '';
     const KEY = import.meta.env.PUBLIC_SUPABASE_KEY || '';
@@ -64,14 +65,16 @@ import { lien } from '../lib/url';
       const password = (document.getElementById('password') as HTMLInputElement).value;
       const cle = (document.getElementById('cle') as HTMLInputElement).value.trim();
       try {
+        // Si un parent est connecté, on l'attache comme parent du nouveau compte
+        const parent = userID() || '';
         const res = await fetch(`${BASE}/functions/v1/cartable-ia/creer-compte`, {
           method: 'POST',
           headers: { apikey: KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prenom, classe, email, password, cle }),
+          body: JSON.stringify({ prenom, classe, email, password, cle, parent }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Échec de la création.');
-        status.textContent = `✅ Compte « ${email} » créé !`;
+        status.textContent = `✅ Compte « ${data.email} » créé !`;
         err.textContent = '';
         err.classList.add('hidden');
         setTimeout(() => { window.location.href = lien('/login'); }, 1200);

@@ -16,6 +16,9 @@ import { SITE_NOM } from '../lib/site';
       </div>
     </header>
 
+    <!-- ---------- famille (parent ↔ enfants) ---------- -->
+    <section id="blocFamille" class="hidden mb-8"></section>
+
     <!-- ---------- recherche ---------- -->
     <a href={lien('/recherche')}
        class="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-900/60 ring-1 ring-slate-800 text-sm text-slate-400 hover:ring-brand/50 transition mb-8">
@@ -90,9 +93,12 @@ import { SITE_NOM } from '../lib/site';
     import { getFiches, type Fiche } from '../lib/fiches';
     import { getMatieres, ajouterMatiere, supprimerMatiere, type MatiereDyn } from '../lib/matieres';
     import { getProfil } from '../lib/profils';
+    import { mesEnfants, basculerEnfant, monParent } from '../lib/famille';
+    import { revenirParent, parentMemo } from '../lib/auth';
     import { isLoggedIn } from '../lib/auth';
     import { esc } from '../lib/rendu';
     import { lien } from '../lib/url';
+    import { joliPrenom, nomSitePrenom } from '../lib/site';
 
     const set = (id: string, v: string | number) => {
       const el = document.getElementById(id);
@@ -146,7 +152,7 @@ import { SITE_NOM } from '../lib/site';
       // salutation personnalisée (prenom + classe)
       const profil = await getProfil();
       if (profil) {
-        set('prenom', profil.prenom);
+        set('prenom', joliPrenom(profil.prenom));
         set('badgeClasse', profil.classe || '');
       } else {
         set('prenom', '');
@@ -157,6 +163,50 @@ import { SITE_NOM } from '../lib/site';
       const total = fiches.length;
       set('compteMat', total ? total + ' fiche' + (total > 1 ? 's' : '') : '');
       compteurMatieres(fiches);
+
+      // ---------- famille : liste des enfants + retour parent ----------
+      const blocFamille = document.getElementById('blocFamille')!;
+      const parent = await monParent();
+      const enfants = await mesEnfants();
+      const morceaux: string[] = [];
+      if (parent && parentMemo()) {
+        morceaux.push(
+          '<div class="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/60 ring-1 ring-slate-800">' +
+            '<span class="text-sm text-slate-300">👤 Tu es sur le compte de <strong>' + esc(profil?.prenom || 'l\'enfant') + '</strong>.</span>' +
+            '<button data-retour-parent class="btn-doux !px-3 !py-1.5 !text-xs shrink-0">↩ Revenir au compte parent</button>' +
+          '</div>');
+      }
+      if (enfants.length) {
+        morceaux.push(
+          '<div class="flex items-center gap-2 flex-wrap">' +
+            '<span class="text-xs font-semibold text-slate-400">👨‍👩‍👧‍👦 Enfants :</span>' +
+            enfants.map((e) =>
+              '<button data-enfant="' + e.uid + '" class="btn-doux !px-3 !py-1.5 !text-xs">' +
+                esc(joliPrenom(e.prenom)) + (e.classe ? ' <span class="text-slate-500">· ' + esc(e.classe) + '</span>' : '') +
+              '</button>').join('') +
+          '</div>');
+      }
+      if (morceaux.length) {
+        blocFamille.innerHTML = '<div class="space-y-2">' + morceaux.join('') + '</div>';
+        blocFamille.classList.remove('hidden');
+        blocFamille.querySelector('[data-retour-parent]')?.addEventListener('click', () => {
+          if (revenirParent()) window.location.reload();
+        });
+        blocFamille.querySelectorAll<HTMLElement>('[data-enfant]').forEach((b) => {
+          b.addEventListener('click', async () => {
+            b.textContent = '⏳ Bascule…';
+            const ok = await basculerEnfant(b.dataset.enfant!);
+            if (ok) { window.location.reload(); }
+            else { b.textContent = '❌ Échec — réessaie.'; setTimeout(() => { window.location.reload(); }, 1200); }
+          });
+        });
+      }
+
+      // nom du site adapté au profil (via getProfil déjà chargé)
+      if (profil?.prenom) {
+        document.querySelectorAll<HTMLElement>('[data-nom-site]').forEach((el) => { el.textContent = nomSitePrenom(profil.prenom); });
+        if (document.title.includes('Cartable')) document.title = document.title.replace(/Cartable[^—]*/, nomSitePrenom(profil.prenom));
+      }
 
       // gestion des matières
       const mgMsg = document.getElementById('mgMsg')!;
