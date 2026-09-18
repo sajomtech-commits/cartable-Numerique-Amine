@@ -68,12 +68,26 @@ import { MATIERES } from '../lib/matieres';
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" id="gridMatieres">
         <p class="carte p-4 text-sm text-slate-500 col-span-full">Chargement…</p>
       </div>
+      <div class="mt-4 print-hide">
+        <button id="btnGereMat" type="button" class="btn-doux !px-3 !py-1.5 !text-xs">⚙️ Gérer mes matières</button>
+        <span id="mgMsg" class="text-xs text-slate-500 ml-2"></span>
+      </div>
+      <div id="panelGereMat" class="hidden carte p-4 mt-3 space-y-3">
+        <div class="space-y-2" id="listeGereMat"></div>
+        <div class="flex gap-2">
+          <input id="mgNom" type="text" placeholder="Nouvelle matière (ex. Arts plastiques)"
+                 class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+          <input id="mgIcone" type="text" placeholder="📖" maxlength="4" value="📖"
+                 class="w-14 text-center bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm" />
+          <button id="mgAdd" type="button" class="btn-principal shrink-0 !px-3 !py-1.5 !text-xs">Ajouter</button>
+        </div>
+      </div>
     </section>
   </main>
 
   <script>
     import { getFiches, type Fiche } from '../lib/fiches';
-    import { getMatieres } from '../lib/matieres';
+    import { getMatieres, ajouterMatiere, supprimerMatiere, type MatiereDyn } from '../lib/matieres';
     import { isLoggedIn } from '../lib/auth';
     import { esc } from '../lib/rendu';
     import { lien } from '../lib/url';
@@ -88,11 +102,8 @@ import { MATIERES } from '../lib/matieres';
 
     const grid = document.getElementById('gridMatieres')!;
 
-    if (!isLoggedIn()) {
-      document.getElementById('blocInvite')?.classList.remove('hidden');
-      grid.innerHTML = '<p class="text-sm text-slate-400 col-span-full">Connecte-toi pour voir tes matières.</p>';
-    } else {
-      // Matières du compte (auto-initialisées si vide) — page dynamique /matiere/?nom=
+    /** Reconstruit la grille + le panneau de gestion. */
+    async function chargerMatieres(): Promise<MatiereDyn[]> {
       const mats = await getMatieres();
       grid.innerHTML = mats.map((m) =>
         '<a href="' + lien('/matiere') + '?nom=' + encodeURIComponent(m.nom) + '" data-matiere="' + esc(m.nom) + '" class="carte p-4 hover:-translate-y-0.5 transition-transform">' +
@@ -103,11 +114,18 @@ import { MATIERES } from '../lib/matieres';
           '<p class="text-sm font-medium leading-tight">' + esc(m.nom) + '</p>' +
           '<div class="mt-2.5 h-0.5 rounded-full bg-slate-800 overflow-hidden"><div data-barre class="h-full w-0 bg-brand rounded-full transition-all duration-500"></div></div>' +
         '</a>').join('');
+      // panneau de gestion
+      document.getElementById('listeGereMat')!.innerHTML = mats.map((m) =>
+        '<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-950/60 ring-1 ring-slate-800">' +
+          '<span class="text-base">' + esc(m.icone || '📖') + '</span>' +
+          '<span class="text-sm font-medium flex-1 truncate">' + esc(m.nom) + '</span>' +
+          '<button data-suppr="' + m.id + '" title="Supprimer" class="w-7 h-7 rounded-md bg-slate-800 text-xs text-rose-300 hover:bg-rose-900/60">🗑</button>' +
+        '</div>').join('');
+      return mats;
+    }
 
-      const fiches: Fiche[] = await getFiches();
-      const total = fiches.length;
-      set('compteMat', total ? total + ' fiche' + (total > 1 ? 's' : '') : '');
-
+    /** Applique les compteurs de fiches par matière. */
+    function compteurMatieres(fiches: Fiche[]) {
       const parMatiere = new Map<string, number>();
       fiches.forEach((f) => parMatiere.set(f.matiere, (parMatiere.get(f.matiere) || 0) + 1));
       grid.querySelectorAll<HTMLElement>('[data-matiere]').forEach((carte) => {
@@ -117,6 +135,48 @@ import { MATIERES } from '../lib/matieres';
         if (c) c.textContent = n ? String(n) : '';
         if (b) b.style.width = Math.min(100, n * 20) + '%';
       });
+    }
+
+    if (!isLoggedIn()) {
+      document.getElementById('blocInvite')?.classList.remove('hidden');
+      grid.innerHTML = '<p class="text-sm text-slate-400 col-span-full">Connecte-toi pour voir tes matières.</p>';
+    } else {
+      const mats = await chargerMatieres();
+      const fiches: Fiche[] = await getFiches();
+      const total = fiches.length;
+      set('compteMat', total ? total + ' fiche' + (total > 1 ? 's' : '') : '');
+      compteurMatieres(fiches);
+
+      // gestion des matières
+      const mgMsg = document.getElementById('mgMsg')!;
+      const panel = document.getElementById('panelGereMat')!;
+      document.getElementById('btnGereMat')?.addEventListener('click', () => {
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) document.getElementById('mgNom')?.focus();
+      });
+      document.getElementById('listeGereMat')!.addEventListener('click', async (e) => {
+        const b = (e.target as HTMLElement).closest('[data-suppr]') as HTMLElement | null;
+        if (!b) return;
+        if (!confirm('Supprimer cette matière ?')) return;
+        if (await supprimerMatiere(b.dataset.suppr!)) {
+          mgMsg.textContent = 'Matière supprimée.';
+          grid.innerHTML = '<p class="text-sm text-slate-400 col-span-full">Mise à jour…</p>';
+          await chargerMatieres();
+          compteurMatieres(await getFiches());
+        } else mgMsg.textContent = '❌ Suppression impossible.';
+      });
+      document.getElementById('mgAdd')?.addEventListener('click', async () => {
+        const nom = (document.getElementById('mgNom') as HTMLInputElement).value.trim();
+        const icone = (document.getElementById('mgIcone') as HTMLInputElement).value.trim() || '📖';
+        if (!nom) { mgMsg.textContent = '⚠️ Tape le nom de la matière.'; return; }
+        const id = await ajouterMatiere(nom, icone);
+        if (!id) { mgMsg.textContent = '❌ Ajout impossible (existe déjà ?).'; return; }
+        (document.getElementById('mgNom') as HTMLInputElement).value = '';
+        mgMsg.textContent = `✅ « ${nom} » ajoutée.`;
+        await chargerMatieres();
+        compteurMatieres(await getFiches());
+      });
+      void mats;
     }
   </script>
 </Layout>
