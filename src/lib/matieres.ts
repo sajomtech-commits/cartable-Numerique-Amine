@@ -1,5 +1,6 @@
 // Matières : liste PAR DÉFAUT (instanciation) + liste DYNAMIQUE par utilisateur (base).
 import { validToken } from './auth';
+import { getProfil } from './profils';
 
 // ---------- Défauts (utilisés au premier lancement d'un compte) ----------
 export interface Matiere {
@@ -25,6 +26,29 @@ export const DEFAUT_MATIERES: Matiere[] = [
 
 /** Compat : liste statique par défaut (fallback build / anciennes références). */
 export const MATIERES: Matiere[] = DEFAUT_MATIERES;
+
+// ---------- Matières par défaut selon la classe ----------
+const ICONES: Record<string, string> = {
+  'maths': '📐', 'français': '📚', 'histoire-géo': '🌍', 'anglais': '🇬🇧',
+  'espagnol': '🇪🇸', 'svt': '🧬', 'physique-chimie': '⚗️', 'technologie': '🛠️',
+  'science numérique': '💻', 'science éco': '📊', 'sport': '⚽',
+};
+const PALETTE = ['bg-indigo-500', 'bg-rose-500', 'bg-amber-500', 'bg-sky-500', 'bg-emerald-500', 'bg-violet-500', 'bg-teal-500', 'bg-cyan-500'];
+
+function matiereDefaut(nom: string, i: number): Matiere {
+  return { nom, icon: ICONES[nom.toLowerCase()] || '📖', couleur: PALETTE[i % PALETTE.length], accent: '', anneau: '' };
+}
+
+const LISTE_4EME = ['Maths', 'Français', 'Histoire-Géo', 'Anglais', 'Espagnol'];
+const LISTE_6EME = ['Maths', 'Français', 'Histoire-Géo', 'Anglais', 'SVT', 'Physique-Chimie', 'Technologie'];
+
+/** Matières initiales par défaut selon la classe (4ème, 6ème, sinon 2nde). */
+export function matieresDefautPour(classe: string | null): Matiere[] {
+  const n = String(classe || '').replace(/[^0-9]/g, '');
+  if (n === '4') return LISTE_4EME.map(matiereDefaut);
+  if (n === '6') return LISTE_6EME.map(matiereDefaut);
+  return DEFAUT_MATIERES;
+}
 
 // ---------- API dynamique (par utilisateur) ----------
 export interface MatiereDyn {
@@ -65,8 +89,10 @@ export async function getMatieres(): Promise<MatiereDyn[]> {
     if (Array.isArray(rows) && rows.length) {
       return rows.map((r: any) => ({ id: r.id, nom: r.nom, icone: r.icone || iconePour(r.nom), ordre: r.ordre ?? null }));
     }
-    // auto-init : le compte n'a pas de matières → on insère les défauts
-    const ok = await Promise.all(DEFAUT_MATIERES.map((m, i) =>
+    // auto-init : le compte n'a pas encore de matières → défauts selon la classe
+    const profil = await getProfil();
+    const defauts = matieresDefautPour(profil?.classe ?? null);
+    const ok = await Promise.all(defauts.map((m, i) =>
       fetch(TABLE, { method: 'POST', headers: entetes(token), body: JSON.stringify({ nom: m.nom, icone: m.icon, ordre: i + 1 }) }).then((r) => r.ok)
     ));
     if (ok.some(Boolean)) return getMatieres();
