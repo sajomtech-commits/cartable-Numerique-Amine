@@ -37,6 +37,7 @@ import { lien } from '../lib/url';
     import { resumeHTML, esc } from '../lib/rendu';
     import { lien } from '../lib/url';
     import { iconePour } from '../lib/matieres';
+    import { SITE_NOM } from '../lib/site';
 
     // Matière lue dans l'URL : /matiere/?nom=Maths
     const params = new URLSearchParams(location.search);
@@ -49,7 +50,7 @@ import { lien } from '../lib/url';
       throw new Error('stop');
     }
     document.getElementById('titreMat')!.textContent = iconePour(nomMat) + ' ' + nomMat;
-    document.title = nomMat + ' — Cartable';
+    document.title = nomMat + ' — ' + SITE_NOM;
     (document.getElementById('lienAjouter') as HTMLAnchorElement).href =
       lien('/fiche') + '?matiere=' + encodeURIComponent(nomMat);
 

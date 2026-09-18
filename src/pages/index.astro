@@ -2,8 +2,9 @@
 import Layout from '../layouts/Layout.astro';
 import { lien } from '../lib/url';
 import { MATIERES } from '../lib/matieres';
+import { SITE_NOM } from '../lib/site';
 ---
-<Layout title="Tableau de bord — Cartable Amine">
+<Layout title={`Tableau de bord — ${SITE_NOM}`}>
   <main class="max-w-4xl mx-auto px-5 md:px-8 py-8 md:py-12">
 
     <!-- ---------- en-tête ---------- -->

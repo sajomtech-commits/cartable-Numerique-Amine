@@ -3,6 +3,7 @@
 //  - Desktop (md+) : barre supérieure collante avec le nom + les onglets.
 //  - Mobile       : barre d'onglets fixée en bas (pouce), « Scanner » mis en avant.
 import { lien } from '../lib/url';
+import { SITE_NOM } from '../lib/site';
 
 const onglets = [
   { chemin: '/',          href: lien('/'),          icone: '🏠', libelle: 'Accueil' },
@@ -24,7 +25,7 @@ const estActif = (c: string) => chemin === c || (c !== '/' && chemin.startsWith(
   <div class="max-w-5xl mx-auto px-8 h-16 flex items-center justify-between">
     <a href={lien('/')} class="flex items-center gap-2 font-extrabold tracking-tight">
       <span class="grid place-items-center w-9 h-9 rounded-xl bg-brand text-lg shadow-lg">📘</span>
-      <span>Cartable</span>
+      <span>{SITE_NOM}</span>
     </a>
     <nav class="flex items-center gap-1">
       {onglets.map((o) => (

@@ -1,8 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Barre from '../components/Barre.astro';
+import { SITE_NOM } from '../lib/site';
 ---
-<Layout title="Mes cours — Cartable Amine">
+<Layout title={`Mes cours — ${SITE_NOM}`}>
   <main class="max-w-5xl mx-auto px-5 md:px-8 py-6 md:py-10">
     <Barre libelle="Accueil" />
 

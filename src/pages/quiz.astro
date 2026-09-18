@@ -3,8 +3,9 @@ import Layout from '../layouts/Layout.astro';
 import Barre from '../components/Barre.astro';
 import { lien } from '../lib/url';
 import { MATIERES } from '../lib/matieres';
+import { SITE_NOM } from '../lib/site';
 ---
-<Layout title="Quiz — Cartable Amine">
+<Layout title={`Quiz — ${SITE_NOM}`}>
   <main class="max-w-3xl mx-auto px-5 md:px-8 py-6 md:py-10">
     <Barre libelle="Accueil" />
 

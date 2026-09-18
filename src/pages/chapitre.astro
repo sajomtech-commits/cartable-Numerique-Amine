@@ -113,6 +113,7 @@ import { lien } from '../lib/url';
     import { getControles, enregistrerControle, scoreMoyen, type Controle } from '../lib/controles';
     import { lienCours } from '../lib/storage';
     import { isLoggedIn, userID } from '../lib/auth';
+    import { SITE_NOM } from '../lib/site';
     import { brancherLecteur } from '../lib/player';
     import { demanderTexte } from '../lib/demandeur';
     import { resumeHTML, esc } from '../lib/rendu';
@@ -305,7 +306,7 @@ import { lien } from '../lib/url';
       }
       matiere = chap.matiere || '';
       titreEl.textContent = chap.titre;
-      document.title = chap.titre + ' — Cartable Amine';
+      document.title = chap.titre + ' — ' + SITE_NOM;
       const a = document.getElementById('lienMatiere') as HTMLAnchorElement;
       a.textContent = '📖 ' + (matiere || 'matière');
       a.href = lien('/matiere') + '?nom=' + encodeURIComponent(matiere || '');

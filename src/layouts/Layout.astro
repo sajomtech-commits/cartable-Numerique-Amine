@@ -1,6 +1,7 @@
 ---
 import { lien } from '../lib/url';
 import Nav from '../components/Nav.astro';
+import { SITE_NOM } from '../lib/site';
 import '../styles/global.css';
 
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
   /** Affiche la coquille de navigation (désactiver sur les écrans plein cadre type connexion). */
   nav?: boolean;
 }
-const { title = "Cartable Numérique — Amine", nav = true } = Astro.props;
+const { title = SITE_NOM, nav = true } = Astro.props;
 ---
 <!DOCTYPE html>
 <html lang="fr" class="scroll-smooth">

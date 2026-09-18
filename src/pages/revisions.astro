@@ -2,8 +2,9 @@
 import Layout from '../layouts/Layout.astro';
 import { lien } from '../lib/url';
 import { MATIERES } from '../lib/matieres';
+import { SITE_NOM } from '../lib/site';
 ---
-<Layout title="Fiches — Cartable Amine">
+<Layout title={`Fiches — ${SITE_NOM}`}>
   <main class="max-w-4xl mx-auto px-5 md:px-8 py-6 md:py-10">
     <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
       <div>
