@@ -15,12 +15,8 @@ import { MATIERES } from '../lib/matieres';
 
     <section id="selector" class="carte p-5 mb-6">
       <label class="block mb-2 text-sm font-semibold">Choisis la matière</label>
-      <div class="flex flex-wrap gap-2">
-        {MATIERES.map((m) => (
-          <button data-mat={m.nom} class="btn-doux text-xs">
-            <span class="mr-1">{m.icon}</span>{m.nom}
-          </button>
-        ))}
+      <div class="flex flex-wrap gap-2" id="listeMatieres">
+        <p class="text-xs text-slate-500">Chargement…</p>
       </div>
       <p id="selMsg" class="text-xs text-slate-500 mt-3"></p>
     </section>
@@ -33,6 +29,7 @@ import { MATIERES } from '../lib/matieres';
     import { getFiches, type Fiche } from '../lib/fiches';
     import { enregistrerControle } from '../lib/controles';
     import { isLoggedIn } from '../lib/auth';
+    import { getMatieres } from '../lib/matieres';
     import { esc } from '../lib/rendu';
     import { lien } from '../lib/url';
 
@@ -54,6 +51,11 @@ import { MATIERES } from '../lib/matieres';
       selMsg.innerHTML = `🔒 <a class="text-brand hover:underline" href="${lien('/login')}">Connecte-toi</a> pour faire un quiz.`;
     } else {
       toutes = await getFiches();
+      // Matières du compte (auto-initialisées si vide)
+      const mats = await getMatieres();
+      const sel = document.getElementById('listeMatieres')!;
+      sel.innerHTML = mats.map((m) =>
+        '<button data-mat="' + esc(m.nom) + '" class="btn-doux text-xs"><span class="mr-1">' + esc(m.icone || '📖') + '</span>' + esc(m.nom) + '</button>').join('');
     }
 
     document.querySelectorAll('[data-mat]').forEach((b) => b.addEventListener('click', () => {

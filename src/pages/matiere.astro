@@ -1,25 +1,16 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Barre from '../../components/Barre.astro';
-import { lien } from '../../lib/url';
-import { MATIERES } from '../../lib/matieres';
-
-export function getStaticPaths() {
-  return MATIERES.map((m) => ({ params: { slug: m.slug } }));
-}
-const { slug } = Astro.params;
-const m = MATIERES.find((x) => x.slug === slug);
-const nom = m?.nom ?? slug;
-const emoji = m?.icon ?? '📖';
+import Layout from '../layouts/Layout.astro';
+import Barre from '../components/Barre.astro';
+import { lien } from '../lib/url';
 ---
-<Layout title={nom + ' — Amine'}>
-  <main class="max-w-5xl mx-auto px-5 md:px-8 py-6 md:py-10" data-matiere={nom}>
+<Layout title="Matière — Cartable">
+  <main class="max-w-5xl mx-auto px-5 md:px-8 py-6 md:py-10" data-matiere="">
     <Barre libelle="Accueil" />
 
     <header class="mb-6">
-      <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">{emoji} {nom}</h1>
+      <h1 id="titreMat" class="text-3xl md:text-4xl font-extrabold tracking-tight"></h1>
       <p id="resumeMat" class="text-slate-400 text-sm mt-1">Tes chapitres, tes cours et tes fiches.</p>
-      <a href={`${lien('/fiche')}?matiere=${encodeURIComponent(nom)}`}
+      <a id="lienAjouter" href={lien('/fiche')}
          class="inline-block mt-2 text-xs text-slate-500 hover:text-brand transition">📷 Ajouter un cours scanné</a>
     </header>
 
@@ -37,16 +28,32 @@ const emoji = m?.icon ?? '📖';
   </main>
 
   <script>
-    import { getFiches, type Fiche } from '../../lib/fiches';
-    import { getChapitres, creerChapitre, renommerChapitre, supprimerChapitre, reordonnerChapitres } from '../../lib/chapitres';
-    import type { Chapitre } from '../../lib/chapitres';
-    import { lienCours } from '../../lib/storage';
-    import { isLoggedIn } from '../../lib/auth';
-  import { demanderTexte } from '../../lib/demandeur';
-    import { resumeHTML, esc } from '../../lib/rendu';
-    import { lien } from '../../lib/url';
+    import { getFiches, type Fiche } from '../lib/fiches';
+    import { getChapitres, creerChapitre, renommerChapitre, supprimerChapitre, reordonnerChapitres } from '../lib/chapitres';
+    import type { Chapitre } from '../lib/chapitres';
+    import { lienCours } from '../lib/storage';
+    import { isLoggedIn } from '../lib/auth';
+    import { demanderTexte } from '../lib/demandeur';
+    import { resumeHTML, esc } from '../lib/rendu';
+    import { lien } from '../lib/url';
+    import { iconePour } from '../lib/matieres';
 
-    const nomMatiere = document.querySelector('main')!.getAttribute('data-matiere')!;
+    // Matière lue dans l'URL : /matiere/?nom=Maths
+    const params = new URLSearchParams(location.search);
+    const nomMat = (params.get('nom') || '').trim();
+    const main = document.querySelector('main')!;
+    main.setAttribute('data-matiere', nomMat);
+    if (!nomMat) {
+      document.getElementById('titreMat')!.textContent = 'Matière introuvable';
+      document.getElementById('liste')!.innerHTML = '<p class="carte-douce p-6 text-center text-sm text-slate-400">Aucune matière indiquée.</p>';
+      throw new Error('stop');
+    }
+    document.getElementById('titreMat')!.textContent = iconePour(nomMat) + ' ' + nomMat;
+    document.title = nomMat + ' — Cartable';
+    (document.getElementById('lienAjouter') as HTMLAnchorElement).href =
+      lien('/fiche') + '?matiere=' + encodeURIComponent(nomMat);
+
+    const nomMatiere = nomMat;
     const liste = document.getElementById('liste')!;
     const chapMsg = document.getElementById('chapMsg')!;
     const chapNom = document.getElementById('chapNom') as HTMLInputElement;
@@ -55,13 +62,6 @@ const emoji = m?.icon ?? '📖';
     let fiches: Fiche[] = [];
 
     const dateFr = (d: string) => new Date(d).toLocaleDateString('fr-FR');
-
-    /** Bloc dépliable générique. */
-    const details = (titre: string, contenu: string) =>
-      `<details class="rounded-xl bg-slate-950/70 ring-1 ring-slate-800 overflow-hidden">
-         <summary class="px-3 py-2 text-xs font-semibold text-slate-300 cursor-pointer">${titre}</summary>
-         <div class="px-3 pb-3">${contenu}</div>
-       </details>`;
 
     function carteChapitre(c: Chapitre | null, fs: Fiche[], index: number) {
       const id = c?.id ?? 'sans';
@@ -113,7 +113,6 @@ const emoji = m?.icon ?? '📖';
           (orphelines.length ? carteChapitre(null, orphelines, -1) : '')
         : '<p class="carte-douce p-6 text-center text-sm text-slate-400">Aucun chapitre pour l\'instant.<br />Crée ton premier chapitre ci-dessus, puis ajoute un cours scanné.</p>';
 
-      // actions sur un chapitre
       liste.querySelectorAll('article[data-chap]').forEach((art) => {
         const id = art.getAttribute('data-chap')!;
         if (id === 'sans') return;

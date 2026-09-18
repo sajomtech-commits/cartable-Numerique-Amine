@@ -308,7 +308,7 @@ import { lien } from '../lib/url';
       document.title = chap.titre + ' — Cartable Amine';
       const a = document.getElementById('lienMatiere') as HTMLAnchorElement;
       a.textContent = '📖 ' + (matiere || 'matière');
-      a.href = lien('/matieres/' + (matiere || '').toLowerCase());
+      a.href = lien('/matiere') + '?nom=' + encodeURIComponent(matiere || '');
       (document.getElementById('ajouter') as HTMLAnchorElement).href =
         `${lien('/fiche')}?matiere=${encodeURIComponent(matiere)}&chapitre=${encodeURIComponent(chap.titre)}`;
 

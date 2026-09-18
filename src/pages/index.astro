@@ -65,27 +65,17 @@ import { MATIERES } from '../lib/matieres';
         <h2 class="titre-section">Matières</h2>
         <span id="compteMat" class="text-[11px] text-slate-500"></span>
       </div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {MATIERES.map((m) => (
-          <a href={lien(`/matieres/${m.slug}`)} data-matiere={m.nom}
-             class="carte p-4 hover:-translate-y-0.5 transition-transform">
-            <div class="flex items-center justify-between mb-2">
-              <span class="grid place-items-center w-9 h-9 rounded-xl bg-slate-800/70 text-base">{m.icon}</span>
-              <span data-compteur class="text-[11px] text-slate-500">0</span>
-            </div>
-            <p class="text-sm font-medium leading-tight">{m.nom}</p>
-            <div class="mt-2.5 h-0.5 rounded-full bg-slate-800 overflow-hidden">
-              <div data-barre class="h-full w-0 bg-brand rounded-full transition-all duration-500"></div>
-            </div>
-          </a>
-        ))}
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" id="gridMatieres">
+        <p class="carte p-4 text-sm text-slate-500 col-span-full">Chargement…</p>
       </div>
     </section>
   </main>
 
   <script>
     import { getFiches, type Fiche } from '../lib/fiches';
+    import { getMatieres } from '../lib/matieres';
     import { isLoggedIn } from '../lib/auth';
+    import { esc } from '../lib/rendu';
     import { lien } from '../lib/url';
 
     const set = (id: string, v: string | number) => {
@@ -96,16 +86,31 @@ import { MATIERES } from '../lib/matieres';
     const auj = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
     set('dateJour', auj.charAt(0).toUpperCase() + auj.slice(1));
 
+    const grid = document.getElementById('gridMatieres')!;
+
     if (!isLoggedIn()) {
       document.getElementById('blocInvite')?.classList.remove('hidden');
+      grid.innerHTML = '<p class="text-sm text-slate-400 col-span-full">Connecte-toi pour voir tes matières.</p>';
     } else {
+      // Matières du compte (auto-initialisées si vide) — page dynamique /matiere/?nom=
+      const mats = await getMatieres();
+      grid.innerHTML = mats.map((m) =>
+        '<a href="' + lien('/matiere') + '?nom=' + encodeURIComponent(m.nom) + '" data-matiere="' + esc(m.nom) + '" class="carte p-4 hover:-translate-y-0.5 transition-transform">' +
+          '<div class="flex items-center justify-between mb-2">' +
+            '<span class="grid place-items-center w-9 h-9 rounded-xl bg-slate-800/70 text-base">' + esc(m.icone || '📖') + '</span>' +
+            '<span data-compteur class="text-[11px] text-slate-500">0</span>' +
+          '</div>' +
+          '<p class="text-sm font-medium leading-tight">' + esc(m.nom) + '</p>' +
+          '<div class="mt-2.5 h-0.5 rounded-full bg-slate-800 overflow-hidden"><div data-barre class="h-full w-0 bg-brand rounded-full transition-all duration-500"></div></div>' +
+        '</a>').join('');
+
       const fiches: Fiche[] = await getFiches();
       const total = fiches.length;
       set('compteMat', total ? total + ' fiche' + (total > 1 ? 's' : '') : '');
 
       const parMatiere = new Map<string, number>();
       fiches.forEach((f) => parMatiere.set(f.matiere, (parMatiere.get(f.matiere) || 0) + 1));
-      document.querySelectorAll<HTMLElement>('[data-matiere]').forEach((carte) => {
+      grid.querySelectorAll<HTMLElement>('[data-matiere]').forEach((carte) => {
         const n = parMatiere.get(carte.dataset.matiere || '') || 0;
         const c = carte.querySelector<HTMLElement>('[data-compteur]');
         const b = carte.querySelector<HTMLElement>('[data-barre]');

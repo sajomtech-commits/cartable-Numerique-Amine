@@ -13,7 +13,6 @@ import { MATIERES } from '../lib/matieres';
       <div class="flex gap-2 print-hide">
         <select id="filtre" class="bg-slate-900/60 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
           <option value="">Toutes matières</option>
-          {MATIERES.map((m) => <option value={m.nom}>{m.nom}</option>)}
         </select>
         <select id="filtreChap" class="bg-slate-900/60 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
           <option value="">Tous les chapitres</option>
@@ -32,7 +31,7 @@ import { MATIERES } from '../lib/matieres';
     import { lienCours } from '../lib/storage';
     import { resumeHTML, esc } from '../lib/rendu';
     import { lien } from '../lib/url';
-    import { MATIERES } from '../lib/matieres';
+    import { MATIERES, getMatieres } from '../lib/matieres';
 
     const liste = document.getElementById('liste')!;
     const filtreMat = document.getElementById('filtre') as HTMLSelectElement;
@@ -144,6 +143,10 @@ import { MATIERES } from '../lib/matieres';
 
     async function charger() {
       toutes = await getFiches();
+      // matières du compte dans le filtre
+      const mats = await getMatieres();
+      filtreMat.innerHTML = '<option value="">Toutes matières</option>' +
+        mats.map((m) => `<option value="${esc(m.nom)}">${esc(m.nom)}</option>`).join('');
       majChapitres();
       render();
     }
