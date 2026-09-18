@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Barre from '../components/Barre.astro';
+import { lien } from '../lib/url';
 ---
 
 <Layout title="Connexion — Cartable Numérique" nav={false}>
@@ -25,6 +26,7 @@ import Barre from '../components/Barre.astro';
                 class="w-full bg-brand text-white font-semibold py-2 rounded-xl hover:opacity-90 transition">Se connecter</button>
       </form>
       <p id="status" class="text-sm text-slate-400 mt-4"></p>
+      <p class="text-center text-xs text-slate-500 mt-4"><a href={lien('/inscription')} class="text-brand hover:underline">Pas encore de compte ? Créer un enfant</a></p>
     </section>
   </main>
 

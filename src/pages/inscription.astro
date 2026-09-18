@@ -1,0 +1,85 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { lien } from '../lib/url';
+---
+<Layout title="Créer un compte — Cartable" nav={false}>
+  <main class="min-h-[80vh] flex items-center justify-center px-4">
+    <section class="w-full max-w-md bg-slate-900/60 border border-slate-700 rounded-2xl p-6">
+      <h1 class="text-2xl font-bold mb-1">👧 Créer un compte</h1>
+      <p class="text-slate-400 text-sm mb-5">Pour ajouter un enfant (prénom, classe, email et mot de passe) + la clé familiale.</p>
+
+      <div id="err" class="hidden mb-4 text-sm text-rose-400 bg-rose-900/30 rounded-lg px-3 py-2"></div>
+      <form id="form" class="space-y-3">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-sm text-slate-300 mb-1" for="prenom">Prénom</label>
+            <input id="prenom" type="text" required autocomplete="given-name"
+                   class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-brand" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1" for="classe">Classe</label>
+            <input id="classe" type="text" placeholder="ex. 4ème" autocomplete="off"
+                   class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-brand" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm text-slate-300 mb-1" for="email">Email</label>
+          <input id="email" type="email" required autocomplete="email"
+                 class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-brand" />
+        </div>
+        <div>
+          <label class="block text-sm text-slate-300 mb-1" for="password">Mot de passe</label>
+          <input id="password" type="password" required minlength="6" autocomplete="new-password"
+                 class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-brand" />
+        </div>
+        <div>
+          <label class="block text-sm text-slate-300 mb-1" for="cle">🔑 Clé familiale</label>
+          <input id="cle" type="password" required autocomplete="off"
+                 class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-brand" />
+          <p class="text-[11px] text-slate-500 mt-1">La clé fournie par les parents — demandez-la si besoin.</p>
+        </div>
+        <button id="go" type="submit"
+                class="w-full bg-brand text-white font-semibold py-2.5 rounded-xl hover:opacity-90 transition">Créer le compte</button>
+      </form>
+      <p id="status" class="text-sm text-slate-400 mt-3 text-center"></p>
+      <p class="text-center text-xs text-slate-500 mt-3"><a href={lien('/login')} class="text-brand hover:underline">Déjà un compte ? Se connecter</a></p>
+    </section>
+  </main>
+
+  <script>
+    import { lien } from '../lib/url';
+
+    const BASE = import.meta.env.PUBLIC_SUPABASE_URL || '';
+    const KEY = import.meta.env.PUBLIC_SUPABASE_KEY || '';
+
+    document.getElementById('form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('err')!;
+      const status = document.getElementById('status')!;
+      err.classList.add('hidden');
+      status.textContent = '⏳ Création du compte…';
+      const prenom = (document.getElementById('prenom') as HTMLInputElement).value.trim();
+      const classe = (document.getElementById('classe') as HTMLInputElement).value.trim();
+      const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+      const password = (document.getElementById('password') as HTMLInputElement).value;
+      const cle = (document.getElementById('cle') as HTMLInputElement).value.trim();
+      try {
+        const res = await fetch(`${BASE}/functions/v1/cartable-ia/creer-compte`, {
+          method: 'POST',
+          headers: { apikey: KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prenom, classe, email, password, cle }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Échec de la création.');
+        status.textContent = `✅ Compte « ${email} » créé !`;
+        err.textContent = '';
+        err.classList.add('hidden');
+        setTimeout(() => { window.location.href = lien('/login'); }, 1200);
+      } catch (ex: any) {
+        err.textContent = '❌ ' + ex.message;
+        err.classList.remove('hidden');
+        status.textContent = '';
+      }
+    });
+  </script>
+</Layout>

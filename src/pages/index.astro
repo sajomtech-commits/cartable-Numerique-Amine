@@ -10,8 +10,8 @@ import { MATIERES } from '../lib/matieres';
     <header class="mb-8">
       <p id="dateJour" class="text-xs text-slate-500"></p>
       <div class="flex items-center gap-2 mt-1">
-        <h1 class="text-3xl md:text-4xl font-bold tracking-tight">Bonjour Amine</h1>
-        <span class="pastille bg-slate-800 text-slate-400 mt-1">2nde</span>
+        <h1 class="text-3xl md:text-4xl font-bold tracking-tight">Bonjour <span id="prenom">…</span></h1>
+        <span id="badgeClasse" class="pastille bg-slate-800 text-slate-400 mt-1"></span>
       </div>
     </header>
 
@@ -88,6 +88,7 @@ import { MATIERES } from '../lib/matieres';
   <script>
     import { getFiches, type Fiche } from '../lib/fiches';
     import { getMatieres, ajouterMatiere, supprimerMatiere, type MatiereDyn } from '../lib/matieres';
+    import { getProfil } from '../lib/profils';
     import { isLoggedIn } from '../lib/auth';
     import { esc } from '../lib/rendu';
     import { lien } from '../lib/url';
@@ -141,6 +142,15 @@ import { MATIERES } from '../lib/matieres';
       document.getElementById('blocInvite')?.classList.remove('hidden');
       grid.innerHTML = '<p class="text-sm text-slate-400 col-span-full">Connecte-toi pour voir tes matières.</p>';
     } else {
+      // salutation personnalisée (prenom + classe)
+      const profil = await getProfil();
+      if (profil) {
+        set('prenom', profil.prenom);
+        set('badgeClasse', profil.classe || '');
+      } else {
+        set('prenom', '');
+        document.getElementById('badgeClasse')!.textContent = '';
+      }
       const mats = await chargerMatieres();
       const fiches: Fiche[] = await getFiches();
       const total = fiches.length;

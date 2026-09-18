@@ -278,6 +278,47 @@ RÈGLES :
       return new Response(JSON.stringify({ error: 'TTS indisponible — ' + derreur }), { status: 502, headers: { ...CORS, 'Content-Type': 'application/json' } });
     }
 
+    // Création de compte (réservée à la famille) : prénom + classe + email + mot de passe
+    if (route === '/creer-compte') {
+      const { prenom = '', classe = '', email = '', password = '', cle = '' } = body;
+      const CLE_FAMILLE = Deno.env.get('FAMILY_KEY') ?? 'cartes-famille-2026';
+      if (cle !== CLE_FAMILLE) {
+        return new Response(JSON.stringify({ error: 'Clé familiale invalide.' }), { status: 403, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 6) {
+        return new Response(JSON.stringify({ error: 'Email ou mot de passe invalide.' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+      const sk = Deno.env.get('SERVICE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      if (!sk) {
+        return new Response(JSON.stringify({ error: 'Configuration serveur manquante.' }), { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+      try {
+        const base = 'https://supabase.sagetech.vip';
+        const r = await fetch(`${base}/auth/v1/admin/users`, {
+          method: 'POST',
+          headers: { apikey: sk, Authorization: `Bearer ${sk}`, 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+          body: JSON.stringify({
+            email, password, email_confirm: true,
+            user_metadata: { prenom: String(prenom).slice(0, 40), classe: String(classe).slice(0, 30) },
+          }),
+        });
+        const j = await r.json();
+        if (!r.ok || !j?.id) {
+          const msg = (Array.isArray(j?.msg) ? j.msg.join(' ') : j?.msg) || `reponse ${r.status}`;
+          return new Response(JSON.stringify({ error: String(msg).slice(0, 200) }), { status: r.ok ? 500 : r.status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+        }
+        // profil de l'enfant (user_id = nouvel utilisateur)
+        await fetch(`${base}/rest/v1/profils`, {
+          method: 'POST',
+          headers: { apikey: sk, Authorization: `Bearer ${sk}`, 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+          body: JSON.stringify({ user_id: j.id, prenom: String(prenom).slice(0, 40), classe: String(classe).slice(0, 30) || null }),
+        });
+        return new Response(JSON.stringify({ ok: true, email }), { headers: { ...CORS, 'Content-Type': 'application/json' } });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e).slice(0, 200) }), { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+    }
+
     return new Response(JSON.stringify({ error: 'route inconnue', route }), { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error('[cartable-ia] erreur :', String((e as Error)?.message || e).slice(0, 300));
