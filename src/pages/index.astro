@@ -149,30 +149,17 @@ import { SITE_NOM } from '../lib/site';
       document.getElementById('blocInvite')?.classList.remove('hidden');
       grid.innerHTML = '<p class="text-sm text-slate-400 col-span-full">Connecte-toi pour voir tes matières.</p>';
     } else {
-      // salutation personnalisée (prenom + classe)
-      const profil = await getProfil();
-      if (profil) {
-        set('prenom', joliPrenom(profil.prenom));
-        set('badgeClasse', profil.classe || '');
-      } else {
-        set('prenom', '');
-        document.getElementById('badgeClasse')!.textContent = '';
-      }
-      const mats = await chargerMatieres();
-      const fiches: Fiche[] = await getFiches();
-      const total = fiches.length;
-      set('compteMat', total ? total + ' fiche' + (total > 1 ? 's' : '') : '');
-      compteurMatieres(fiches);
-
       // ---------- famille : liste des enfants + retour parent ----------
       const blocFamille = document.getElementById('blocFamille')!;
+      const profil = await getProfil();
       const parent = await monParent();
       const enfants = await mesEnfants();
+      const estParent = !profil && enfants.length > 0;
       const morceaux: string[] = [];
       if (parent && parentMemo()) {
         morceaux.push(
           '<div class="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/60 ring-1 ring-slate-800">' +
-            '<span class="text-sm text-slate-300">👤 Tu es sur le compte de <strong>' + esc(profil?.prenom || 'l\'enfant') + '</strong>.</span>' +
+            '<span class="text-sm text-slate-300">👤 Tu es sur le compte de <strong>' + esc(joliPrenom(profil?.prenom || 'l\'enfant')) + '</strong>.</span>' +
             '<button data-retour-parent class="btn-doux !px-3 !py-1.5 !text-xs shrink-0">↩ Revenir au compte parent</button>' +
           '</div>');
       }
@@ -202,42 +189,65 @@ import { SITE_NOM } from '../lib/site';
         });
       }
 
-      // nom du site adapté au profil (via getProfil déjà chargé)
-      if (profil?.prenom) {
-        document.querySelectorAll<HTMLElement>('[data-nom-site]').forEach((el) => { el.textContent = nomSitePrenom(profil.prenom); });
-        if (document.title.includes('Cartable')) document.title = document.title.replace(/Cartable[^—]*/, nomSitePrenom(profil.prenom));
+      // salutation : élève (prénom) / parent (réserve aux comptes sans profil)
+      if (profil) {
+        set('prenom', joliPrenom(profil.prenom));
+        set('badgeClasse', profil.classe || '');
+      } else if (estParent) {
+        set('prenom', 'parent');
+        set('badgeClasse', '👨‍👩‍👧‍👦 compte parent');
+      } else {
+        set('prenom', '');
+        document.getElementById('badgeClasse')!.textContent = '';
       }
 
-      // gestion des matières
-      const mgMsg = document.getElementById('mgMsg')!;
-      const panel = document.getElementById('panelGereMat')!;
-      document.getElementById('btnGereMat')?.addEventListener('click', () => {
-        panel.classList.toggle('hidden');
-        if (!panel.classList.contains('hidden')) document.getElementById('mgNom')?.focus();
-      });
-      document.getElementById('listeGereMat')!.addEventListener('click', async (e) => {
-        const b = (e.target as HTMLElement).closest('[data-suppr]') as HTMLElement | null;
-        if (!b) return;
-        if (!confirm('Supprimer cette matière ?')) return;
-        if (await supprimerMatiere(b.dataset.suppr!)) {
-          mgMsg.textContent = 'Matière supprimée.';
-          grid.innerHTML = '<p class="text-sm text-slate-400 col-span-full">Mise à jour…</p>';
+      // nom du site adapté (navigation + titre d'onglet)
+      const nomAff = profil?.prenom ? nomSitePrenom(profil.prenom) : (estParent ? 'Cartable de la famille' : null);
+      if (nomAff) {
+        document.querySelectorAll<HTMLElement>('[data-nom-site]').forEach((el) => { el.textContent = nomAff; });
+        if (document.title.includes('Cartable')) document.title = document.title.replace(/Cartable[^—]*/, nomAff);
+      }
+
+      // comptes parents : pas de matières propres à charger (juste le bloc enfants)
+      if (estParent) {
+        grid.innerHTML = '<p class="text-sm text-slate-400 col-span-full">Choisis un enfant ci-dessus pour ouvrir son cartable.</p>';
+      } else {
+        const mats = await chargerMatieres();
+        const fiches: Fiche[] = await getFiches();
+        const total = fiches.length;
+        set('compteMat', total ? total + ' fiche' + (total > 1 ? 's' : '') : '');
+        compteurMatieres(fiches);
+
+        // gestion des matières
+        const mgMsg = document.getElementById('mgMsg')!;
+        const panel = document.getElementById('panelGereMat')!;
+        document.getElementById('btnGereMat')?.addEventListener('click', () => {
+          panel.classList.toggle('hidden');
+          if (!panel.classList.contains('hidden')) document.getElementById('mgNom')?.focus();
+        });
+        document.getElementById('listeGereMat')!.addEventListener('click', async (e) => {
+          const b = (e.target as HTMLElement).closest('[data-suppr]') as HTMLElement | null;
+          if (!b) return;
+          if (!confirm('Supprimer cette matière ?')) return;
+          if (await supprimerMatiere(b.dataset.suppr!)) {
+            mgMsg.textContent = 'Matière supprimée.';
+            grid.innerHTML = '<p class="text-sm text-slate-400 col-span-full">Mise à jour…</p>';
+            await chargerMatieres();
+            compteurMatieres(await getFiches());
+          } else mgMsg.textContent = '❌ Suppression impossible.';
+        });
+        document.getElementById('mgAdd')?.addEventListener('click', async () => {
+          const nom = (document.getElementById('mgNom') as HTMLInputElement).value.trim();
+          const icone = (document.getElementById('mgIcone') as HTMLInputElement).value.trim() || '📖';
+          if (!nom) { mgMsg.textContent = '⚠️ Tape le nom de la matière.'; return; }
+          const id = await ajouterMatiere(nom, icone);
+          if (!id) { mgMsg.textContent = '❌ Ajout impossible (existe déjà ?).'; return; }
+          (document.getElementById('mgNom') as HTMLInputElement).value = '';
+          mgMsg.textContent = `✅ « ${nom} » ajoutée.`;
           await chargerMatieres();
           compteurMatieres(await getFiches());
-        } else mgMsg.textContent = '❌ Suppression impossible.';
-      });
-      document.getElementById('mgAdd')?.addEventListener('click', async () => {
-        const nom = (document.getElementById('mgNom') as HTMLInputElement).value.trim();
-        const icone = (document.getElementById('mgIcone') as HTMLInputElement).value.trim() || '📖';
-        if (!nom) { mgMsg.textContent = '⚠️ Tape le nom de la matière.'; return; }
-        const id = await ajouterMatiere(nom, icone);
-        if (!id) { mgMsg.textContent = '❌ Ajout impossible (existe déjà ?).'; return; }
-        (document.getElementById('mgNom') as HTMLInputElement).value = '';
-        mgMsg.textContent = `✅ « ${nom} » ajoutée.`;
-        await chargerMatieres();
-        compteurMatieres(await getFiches());
-      });
-      void mats;
+        });
+      }
     }
   </script>
 </Layout>

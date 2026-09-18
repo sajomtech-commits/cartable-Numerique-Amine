@@ -21,7 +21,9 @@ export async function getProfil(): Promise<Profil | null> {
   const token = await validToken();
   if (!token) return null;
   try {
-    const res = await fetch(`${TABLE}?select=prenom,classe&limit=1`, { headers: entetes(token) });
+    const uid = await uidToken(token);
+    // Filtre STRICT sur user_id : sans lui, un parent (RLS) verrait le profil de son enfant.
+    const res = await fetch(`${TABLE}?select=prenom,classe&user_id=eq.${uid}&limit=1`, { headers: entetes(token) });
     if (!res.ok) return null;
     const rows = await res.json();
     if (!Array.isArray(rows) || !rows.length) return null;

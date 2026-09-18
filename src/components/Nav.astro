@@ -18,16 +18,17 @@ const chemin = base && brut.startsWith(base) ? (brut.slice(base.length) || '/') 
 const estActif = (c: string) => chemin === c || (c !== '/' && chemin.startsWith(c));
 ---
 
-// ---------- Nom du site adapté au profil connecté ----------
 <script>
+  // ---------- Nom du site adapté au profil connecté ----------
   import { getProfil } from '../lib/profils';
-  import { nomSitePrenom } from '../lib/site';
+  import { mesEnfants } from '../lib/famille';
+  import { nomSitePrenom, SITE_NOM } from '../lib/site';
 
   (async () => {
     const profil = await getProfil();
-    if (!profil?.prenom) return;
-    const nom = nomSitePrenom(profil.prenom);
-    // Marque le nom en haut à gauche (desktop) et le titre d'onglet
+    let nom = SITE_NOM;
+    if (profil?.prenom) nom = nomSitePrenom(profil.prenom);
+    else if ((await mesEnfants()).length) nom = 'Cartable de la famille'; // compte parent
     document.querySelectorAll<HTMLElement>('[data-nom-site]').forEach((el) => { el.textContent = nom; });
     if (document.title.includes('Cartable')) document.title = document.title.replace(/Cartable[^—]*/, nom);
   })();
