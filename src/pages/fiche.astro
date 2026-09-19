@@ -35,11 +35,11 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
 
         <!-- 2) Puis on donne le document -->
         <label class="block mb-2 text-sm font-semibold">3. Ton cours</label>
-        <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="grid grid-cols-2 gap-3 mb-3">
           <label class="block bg-brand/10 border-2 border-brand/30 border-dashed rounded-2xl p-6 text-center cursor-pointer hover:bg-brand/20 transition">
             <span class="text-4xl">📷</span>
-            <span class="block mt-2 font-semibold text-sm">Prendre une photo</span>
-            <span class="block text-xs text-slate-400 mt-1">Le plus simple</span>
+            <span class="block mt-2 font-semibold text-sm">Photographier</span>
+            <span class="block text-xs text-slate-400 mt-1">Une page à la fois, d'affilée</span>
             <input id="photo" type="file" accept="image/*" capture="environment" multiple class="hidden" />
           </label>
 
@@ -51,9 +51,19 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
           </label>
         </div>
 
-        <p class="text-[11px] text-slate-500 mb-4 text-center">…ou <b class="text-slate-400">glisse tes fichiers</b> n'importe où sur la page</p>
+        <label class="flex items-center justify-center gap-2 btn-doux !py-2 !text-sm text-slate-300 cursor-pointer mb-4">
+          🖼️ Ajouter des photos depuis la galerie
+          <input id="galerie" type="file" accept="image/*" multiple class="hidden" />
+        </label>
 
-        <div id="apercu" class="hidden mb-3"></div>
+        <div id="apercu" class="hidden mb-2"></div>
+        <div id="lotActions" class="hidden items-center justify-between gap-2 p-3 rounded-xl bg-slate-900/70 ring-1 ring-slate-800 mb-3">
+          <span id="lotCompte" class="text-xs text-slate-400"></span>
+          <div class="flex gap-2 shrink-0">
+            <button id="lotAnnuler" type="button" class="btn-doux !px-3 !py-1.5 !text-xs">🗑 Tout retirer</button>
+            <button id="lotLire" type="button" class="bg-brand hover:bg-indigo-600 text-white !px-3 !py-1.5 !text-xs rounded-xl font-bold">✅ Lire les pages</button>
+          </div>
+        </div>
         <p id="pdfInfo" class="text-xs text-slate-400 mb-4"></p>
 
         <label class="flex items-center gap-2 text-xs text-slate-400 mb-4 cursor-pointer">
@@ -277,15 +287,80 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
     function setOccupe(v: boolean) {
       occupe = v;
       (document.getElementById('photo') as HTMLInputElement).disabled = v;
+      (document.getElementById('galerie') as HTMLInputElement).disabled = v;
       (document.getElementById('file') as HTMLInputElement).disabled = v;
       majBouton();
     }
 
-    // ---------- 1a. PHOTO : appareil photo / galerie → OCR IA ----------
-    document.getElementById('photo')?.addEventListener('change', async (e) => {
-      const files = Array.from((e.target as HTMLInputElement).files || []).slice(0, 6);
+    // ---------- 1a. PHOTOS : prise en lot (plusieurs pages d'affilée) ----------
+    let photosEnAttente: File[] = [];
+    const lotActions = document.getElementById('lotActions')!;
+    const lotCompte = document.getElementById('lotCompte')!;
+
+    /** Ajoute des photos au lot (max 6 pages) et rafraîchit l'aperçu. */
+    function ajouterPhotos(files: File[]) {
       if (!files.length) return;
-      if (!matSel.value) { info.textContent = '⚠️ Choisis d\'abord la matière (et le chapitre) — rien n\'a été lu.'; (e.target as HTMLInputElement).value = ''; matSel.focus(); return; }
+      const reste = 6 - photosEnAttente.length;
+      if (reste <= 0) { info.textContent = '⚠️ Maximum 6 pages par cours.'; return; }
+      photosEnAttente = photosEnAttente.concat(files.slice(0, reste));
+      dessinerLot();
+    }
+
+    /** Affiche les vignettes avec un bouton ✕ par page + le bandeau d'actions. */
+    function dessinerLot() {
+      const z = document.getElementById('apercu')!;
+      const n = photosEnAttente.length;
+      if (!n) {
+        z.classList.add('hidden');
+        lotActions.classList.add('hidden');
+        return;
+      }
+      z.classList.remove('hidden');
+      z.innerHTML = `<p class="text-xs text-slate-500 mb-2">📷 ${n} page${n > 1 ? 's' : ''} prête${n > 1 ? 's' : ''} — reprends l'appareil photo pour ajouter la suivante.</p>
+        <div class="flex gap-2 overflow-x-auto pb-1">${photosEnAttente
+          .map((f, i) => `<figure class="relative shrink-0">
+              <img src="${URL.createObjectURL(f)}" class="h-32 w-24 object-cover rounded-lg ring-1 ring-slate-700" />
+              <span class="absolute bottom-1 left-1 bg-slate-950/80 text-[10px] px-1.5 rounded">p.${i + 1}</span>
+              <button data-retire="${i}" type="button" title="Retirer cette page" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-600 hover:bg-rose-500 text-[10px] leading-none">✕</button>
+            </figure>`).join('')}</div>`;
+      lotCompte.textContent = `${n}/6 page(s)`;
+      lotActions.classList.remove('hidden');
+      lotActions.classList.add('flex');
+    }
+
+    // Prise de photos : chaque photo prise s'ajoute au lot (d'affilée, sans rien perdre)
+    document.getElementById('photo')?.addEventListener('change', (e) => {
+      ajouterPhotos(Array.from((e.target as HTMLInputElement).files || []));
+      (e.target as HTMLInputElement).value = '';
+    });
+
+    // Galerie : plusieurs photos d'un coup
+    document.getElementById('galerie')?.addEventListener('change', (e) => {
+      ajouterPhotos(Array.from((e.target as HTMLInputElement).files || []));
+      (e.target as HTMLInputElement).value = '';
+    });
+
+    // Retirer une page ratée (clic ✕ sur la vignette)
+    document.getElementById('apercu')?.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest('[data-retire]') as HTMLElement | null;
+      if (!b) return;
+      photosEnAttente.splice(Number(b.dataset.retire), 1);
+      dessinerLot();
+    });
+
+    document.getElementById('lotAnnuler')?.addEventListener('click', () => {
+      photosEnAttente = [];
+      dessinerLot();
+      info.textContent = '';
+    });
+
+    // « ✅ Lire les pages » : compression + conservation + OCR page par page (déjà en place)
+    document.getElementById('lotLire')?.addEventListener('click', () => void lirePhotos());
+
+    async function lirePhotos() {
+      const files = photosEnAttente.slice(0, 6);
+      if (!files.length) return;
+      if (!matSel.value) { info.textContent = '⚠️ Choisis d\'abord la matière (et le chapitre) — rien n\'a été lu.'; matSel.focus(); return; }
       fichiers = [];
       setOccupe(true);
       retryBtn.classList.add('hidden');
@@ -296,6 +371,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
           images.push(await compresser(files[i]));
         }
         apercu(images);
+        lotActions.classList.add('hidden');
 
         // Conserver les photos d'origine dans le bucket « cours » (rangées matière/chapitre)
         fichiers = (await Promise.all(
@@ -313,11 +389,12 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         finProgression();
 
         if (texte.length < 100) {
-          info.textContent = "❌ Photo illisible — reprends-la : feuille entière dans le cadre, bien à plat, sans ombre ni reflet.";
+          info.textContent = "❌ Photos illisibles — reprends-les : feuille entière dans le cadre, bien à plat, sans ombre ni reflet. (Clic ✕ sur une vignette pour retirer une page ratée, puis relis.)";
           setOccupe(false);
           return;
         }
         info.textContent = `✅ ${images.length} page(s) lue(s) — ${texte.length} caractères reconnus.`;
+        photosEnAttente = [];
         setOccupe(false);
         if ((document.getElementById('auto') as HTMLInputElement).checked) await genererEtAfficher();
         else st.textContent = '👉 Choisis le chapitre (ou crée-le), puis clique sur « ✨ Générer la fiche ».';
@@ -325,7 +402,7 @@ const matieres = ['Maths', 'Français', 'Physique-Chimie', 'SVT', 'Anglais', 'Es
         info.textContent = '❌ ' + (err.message || String(err));
         setOccupe(false);
       }
-    });
+    }
 
     // ---------- 1b. PDF (un ou plusieurs) : texte direct, sinon OCR vision ----------
     /** Lit un PDF et renvoie son texte (extraction directe si possible, sinon OCR des pages). */
