@@ -86,7 +86,8 @@ export async function genererAudio(payload: {
   matiere: string; titre: string; cours: string[]; fiches: string[];
   duree_min: number; uid: string; chapitre: string;
 }): Promise<AudioGenere> {
-  const j = await post('/audio', payload, 240000);
+  // 380 s < wall-clock 400 s du runtime edge (main/index.ts workerTimeoutMs)
+  const j = await post('/audio', payload, 380000);
   if (j.error) throw new Error(j.error);
   return { script: j.script || '', path: j.path || '', duree_sec: j.duree_sec || 0 };
 }
