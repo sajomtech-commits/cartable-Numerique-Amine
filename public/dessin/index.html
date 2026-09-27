@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ATELIER — Dessins • Trait, ligne, vide</title>
+<meta name="description" content="Atelier de dessin — galerie publique, albums modernes, navigation fluide. Papier, encre, graphite." />
+<meta property="og:title" content="ATELIER — Dessins" />
+<meta property="og:description" content="Galerie de dessins. Albums hyper modernes, navigation fluide." />
+<meta property="og:type" content="website" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✎</text></svg>">
+<link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+<!-- NAV -->
+<nav class="nav" id="nav">
+  <a href="#" class="nav__logo"><i>✎</i> ATELIER</a>
+  <div class="nav__links" id="navLinks">
+    <a href="#oeuvres" class="active">Œuvres</a>
+    <a href="#albums">Albums</a>
+    <a href="#studio">Studio</a>
+    <a href="#contact">Contact</a>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <a href="#oeuvres" class="nav__cta">Voir la galerie →</a>
+    <button class="nav__burger" id="burger" aria-label="menu">☰</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero__doodle" aria-hidden="true">
+    <svg viewBox="0 0 1000 800" fill="none" stroke="#111" stroke-width="0.7">
+      <path d="M80 700 C200 400 400 200 520 320 C640 440 760 120 900 260" stroke-dasharray="6 8"/>
+      <circle cx="520" cy="320" r="2.5" fill="#111" stroke="none"/>
+    </svg>
+  </div>
+  <div class="hero__left">
+    <div class="eyebrow">Galerie publique • GitHub Pages • 2022—2024</div>
+    <h1>TRAIT<br><em>ligne,</em><br><span>vide.</span></h1>
+    <p class="hero__sub">
+      Une page extraordinaire pour exposer le dessin. Papier brut, lumière naturelle, Albums hyper modernes et navigation fluide comme un carnet qu'on feuillette.
+      Chaque trait compte. Chaque vide respire.
+    </p>
+    <div class="hero__meta">
+      <a href="#oeuvres" class="btn">Explorer les œuvres — 12 dessins →</a>
+      <a href="#albums" class="btn btn--ghost">Feuilleter les albums</a>
+    </div>
+    <div class="hero__stats">
+      <div><b>12</b><span>Œuvres exposées</span></div>
+      <div><b>04</b><span>Albums</span></div>
+      <div><b>∞</b><span>Ajout en 30s</span></div>
+    </div>
+  </div>
+  <div class="hero__right">
+    <div class="hero__frame reveal in">
+      <img src="https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?q=80&w=900&auto=format&fit=crop" alt="Dessin hero" loading="eager">
+    </div>
+  </div>
+  <div class="scroll-hint"><span>Défiler</span><i></i></div>
+</section>
+
+<!-- OEUVRES -->
+<section class="section" id="oeuvres">
+  <div class="section__head reveal">
+    <div>
+      <div class="kicker">01 — Galerie</div>
+      <h2>Œuvres <em>récentes</em></h2>
+    </div>
+    <p>Filtre instantané, grille masonry fluide, zoom immersif au clic. Tout est pensé pour que le dessin respire, sans bruit autour.</p>
+  </div>
+
+  <div class="filters reveal" id="filters">
+    <button class="filter active" data-filter="all">Tout • 12</button>
+    <button class="filter" data-filter="Visages">Visages</button>
+    <button class="filter" data-filter="Encres Nocturnes">Encres Nocturnes</button>
+    <button class="filter" data-filter="Carnet de Voyage">Carnet de Voyage</button>
+    <button class="filter" data-filter="Abstractions">Abstractions</button>
+    <label class="search"><span>⌕</span><input id="search" placeholder="Chercher titre, technique..." /></label>
+  </div>
+
+  <div class="masonry" id="masonry"></div>
+  <p class="muted" style="text-align:center;margin-top:18px" id="count"></p>
+</section>
+
+<!-- ALBUMS -->
+<section class="section section--alt" id="albums">
+  <div class="section__head reveal">
+    <div>
+      <div class="kicker">02 — Albums</div>
+      <h2>Albums <em>hyper modernes</em></h2>
+    </div>
+    <p>Navigation à l'horizontale, snap fluide, comme Apple Photos. Clique un album pour filtrer la galerie. Glisse au doigt, au trackpad, à la molette.</p>
+  </div>
+  <div class="albums">
+    <div class="albums__track" id="albumsTrack"></div>
+  </div>
+</section>
+
+<!-- STUDIO -->
+<section class="section" id="studio">
+  <div class="studio">
+    <div class="studio__text reveal">
+      <div class="kicker">03 — Studio</div>
+      <h2>Le geste<br><em>avant l'image.</em></h2>
+      <p>Je dessine depuis l'enfance. Le papier comme terrain. Le crayon comme sismographe. Pas d'effets, pas de filtres : la main, la lumière, le temps long.</p>
+      <div class="studio__quote">“Dessiner, c'est prendre une ligne pour une promenade.” — Paul Klee</div>
+      <p class="muted">Papier : Bristol, Fabriano, papier teinté • Outils : graphite, fusain, pierre noire, encre de Chine, aquarelle • Format : du A5 de poche au A2 d'atelier. Tous les dessins sont visibles en haute définition, zoomables.</p>
+      <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+        <span class="filter" style="cursor:default">✎ Trait lent</span>
+        <span class="filter" style="cursor:default">◐ Lumière naturelle</span>
+        <span class="filter" style="cursor:default">⬢ Papier brut</span>
+      </div>
+    </div>
+    <div class="studio__grid reveal">
+      <img src="https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?q=80&w=800&auto=format&fit=crop" alt="atelier" loading="lazy">
+      <img src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=800&auto=format&fit=crop" alt="dessin main" loading="lazy">
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section class="section section--alt" id="contact">
+  <div class="section__head reveal">
+    <div>
+      <div class="kicker">04 — Contact</div>
+      <h2>Parlons <em>dessin</em></h2>
+    </div>
+    <p>Commande, exposition, tirage papier, ou simplement dire bonjour. Réponse sous 24h.</p>
+  </div>
+  <div class="contact reveal">
+    <div class="contact__card">
+      <h3>Atelier ouvert.</h3>
+      <p style="opacity:.8;line-height:1.6">Basé entre Paris & ailleurs. Carnet toujours dans la poche. Tu veux acquérir un dessin, demander un tirage, ou exposer ?</p>
+      <div style="margin-top:18px;display:grid;gap:8px;font-size:14px">
+        <div>✉︎ <a href="mailto:atelier@dessin.fr" style="color:#fff;text-decoration:underline">atelier@dessin.fr</a></div>
+        <div>◎ Instagram — @atelier.dessin</div>
+        <div>◐ Disponible pour résidences & workshops</div>
+      </div>
+      <div style="margin-top:22px;display:flex;gap:10px">
+        <a href="mailto:atelier@dessin.fr" class="nav__cta" style="background:var(--paper);color:var(--ink)">Écrire →</a>
+        <a href="#" class="nav__cta" style="background:transparent;border:1px solid rgba(255,255,255,.3);color:var(--paper)">Instagram</a>
+      </div>
+    </div>
+    <form onsubmit="event.preventDefault(); alert('Message envoyé ✎ (démo) — branche Formspree ou ton email dans le code.'); this.reset();">
+      <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <input placeholder="Nom" required />
+          <input placeholder="Email" type="email" required />
+        </div>
+        <input placeholder="Sujet — ex: tirage, expo, commande" />
+        <textarea placeholder="Ton message..."></textarea>
+        <button class="btn-dark" type="submit">Envoyer le message →</button>
+        <span class="muted">En vrai : remplace le `onsubmit` par un lien Formspree. 2 minutes. Voir README.</span>
+      </div>
+    </form>
+  </div>
+</section>
+
+<footer class="footer">
+  <div>© <span id="year"></span> ATELIER — Tous droits réservés • Fait avec le trait.</div>
+  <div style="display:flex;gap:18px"><a href="#oeuvres">Haut de page ↑</a><a href="#">Mentions</a></div>
+</footer>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <div class="lightbox__backdrop" id="lbBackdrop"></div>
+  <button class="lightbox__close" id="lbClose" aria-label="fermer">✕</button>
+  <div class="lightbox__inner">
+    <div class="lightbox__media">
+      <img id="lbImg" alt="" />
+      <div class="lightbox__nav">
+        <button id="lbPrev" aria-label="précédent">‹</button>
+        <button id="lbNext" aria-label="suivant">›</button>
+      </div>
+    </div>
+    <div class="lightbox__info">
+      <div class="lightbox__kicker" id="lbKicker"></div>
+      <h3 class="lightbox__title" id="lbTitle"></h3>
+      <div class="lightbox__meta" id="lbMeta"></div>
+      <p class="lightbox__desc" id="lbDesc"></p>
+      <div class="lightbox__actions">
+        <button id="lbPrev2">← Précédent</button>
+        <button class="primary" id="lbNext2">Suivant →</button>
+      </div>
+      <p class="muted" style="margin-top:14px">Astuce : flèches ← → • Échap pour fermer • molette pour zoomer (démo). Glisse pour naviguer sur mobile.</p>
+    </div>
+  </div>
+</div>
+
+<script src="data/drawings.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
